@@ -320,6 +320,10 @@ public final class Client {
         }
         try {
             connection.stop();
+        } catch (JMSException ignored) {
+            // stop() failure is non-fatal; proceed to close() regardless
+        }
+        try {
             connection.close();
             bClient.addNativeData(NATIVE_CONNECTION, null);
         } catch (JMSException e) {
@@ -450,7 +454,9 @@ public final class Client {
             Object expiry = bMsg.get(EXPIRY_FIELD);
             if (expiry instanceof Long l) {
                 long ttl = l - System.currentTimeMillis();
-                return Math.max(0L, ttl);
+                // JMS TTL=0 means "never expire"; return 1ms so already-expired messages
+                // expire immediately on the broker instead of living forever.
+                return ttl <= 0 ? 1L : ttl;
             }
         }
         return Message.DEFAULT_TIME_TO_LIVE;

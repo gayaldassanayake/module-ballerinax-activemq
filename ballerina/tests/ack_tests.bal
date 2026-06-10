@@ -187,6 +187,7 @@ function testItAckClientAcknowledgeRecover() returns error? {
     groups: ["integration", "ack"]
 }
 function testItAckDupsOkAcknowledge() returns error? {
+    check drainQueue("it.ack.dups.queue");
     lock {
         itAckDupsOkCount = 0;
     }

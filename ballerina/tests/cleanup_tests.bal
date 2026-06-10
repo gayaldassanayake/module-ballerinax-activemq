@@ -46,6 +46,7 @@ function testItListenerCloseIdempotent() returns error? {
     groups: ["integration", "cleanup"]
 }
 function testItNoMessageLossHappyPath() returns error? {
+    check drainQueue("it.cleanup.nomsg.queue");
     lock {
         itCleanupListenerCount = 0;
     }

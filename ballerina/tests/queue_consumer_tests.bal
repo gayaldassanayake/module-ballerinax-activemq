@@ -21,6 +21,7 @@ import ballerina/test;
     groups: ["integration", "queue-consumer"]
 }
 function testItReceiveTextMessageFromQueue() returns error? {
+    check drainQueue("it.cons.text.queue");
     Client mqClient = check new (brokerUrl, username = username, password = password);
     check mqClient->sendMessage("it.cons.text.queue", {
         messageId: "it-cons-text-01",
@@ -40,6 +41,7 @@ function testItReceiveTextMessageFromQueue() returns error? {
     groups: ["integration", "queue-consumer"]
 }
 function testItReceiveBytesMessageFromQueue() returns error? {
+    check drainQueue("it.cons.bytes.queue");
     Client mqClient = check new (brokerUrl, username = username, password = password);
     byte[] original = [0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01];
     check mqClient->sendMessage("it.cons.bytes.queue", {
@@ -60,6 +62,7 @@ function testItReceiveBytesMessageFromQueue() returns error? {
     groups: ["integration", "queue-consumer"]
 }
 function testItReceiveMapMessageFromQueue() returns error? {
+    check drainQueue("it.cons.map.queue");
     Client mqClient = check new (brokerUrl, username = username, password = password);
     check mqClient->sendMessage("it.cons.map.queue", {
         messageId: "it-cons-map-01",

@@ -26,11 +26,19 @@ configurable string password = "admin";
 // a previous run left unconsumed messages behind.
 function drainQueue(string queueName) returns error? {
     Client drainer = check new (brokerUrl, username = username, password = password);
-    Message? msg = check drainer->receiveMessage(queueName, 1000);
-    while msg is Message {
-        msg = check drainer->receiveMessage(queueName, 500);
+    error? drainError = ();
+    do {
+        Message? msg = check drainer->receiveMessage(queueName, 1000);
+        while msg is Message {
+            msg = check drainer->receiveMessage(queueName, 500);
+        }
+    } on fail error e {
+        drainError = e;
     }
     check drainer->close();
+    if drainError is error {
+        return drainError;
+    }
 }
 
 // TC-CONN-01: Successful connection to broker

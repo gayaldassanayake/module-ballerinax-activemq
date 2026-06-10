@@ -192,6 +192,7 @@ isolated int clientTopicReceivedCount = 0;
     groups: ["client", "topics"]
 }
 isolated function testClientSendToTopic() returns error? {
+    lock { clientTopicReceivedCount = 0; }
     Service topicSvc = @ServiceConfig {
         topicName: "client.test.topic",
         pollingInterval: 1,
@@ -439,17 +440,26 @@ function testClientSendRequest() returns error? {
 
     runtime:sleep(1);
 
-    Client requester = check new (BROKER_URL);
-    // Use correlationId (a JMS header) to tag the request for matching with the reply.
-    Message? reply = check requester->sendRequest("client.rr.request.queue", {
-        messageId: "rr-req-1",
-        correlationId: "rr-corr-id-001",
-        payload: "Request".toBytes()
-    }, 10000);
-    check requester->close();
+    error? testError = ();
+    Message? reply = ();
+    do {
+        Client requester = check new (BROKER_URL);
+        // Use correlationId (a JMS header) to tag the request for matching with the reply.
+        reply = check requester->sendRequest("client.rr.request.queue", {
+            messageId: "rr-req-1",
+            correlationId: "rr-corr-id-001",
+            payload: "Request".toBytes()
+        }, 10000);
+        check requester->close();
+    } on fail error e {
+        testError = e;
+    }
 
     check responderListener.gracefulStop();
 
+    if testError is error {
+        return testError;
+    }
     test:assertTrue(reply is Message, "sendRequest should receive a reply within the timeout");
     if reply is Message {
         string content = check string:fromBytes(reply.payload);

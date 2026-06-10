@@ -95,7 +95,7 @@ tasks.register('commitTomlFiles') {
 tasks.register('startActiveMQBroker') {
     doLast {
         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-            println "ActiveMQ integration tests skipped: Docker is not available on Windows."
+            println "ActiveMQ broker startup skipped: Docker is not available on Windows. Integration tests that require a live broker will fail."
             return
         }
         def dockerCheck = exec {
@@ -103,7 +103,7 @@ tasks.register('startActiveMQBroker') {
             ignoreExitValue true
         }
         if (dockerCheck.exitValue != 0) {
-            println "ActiveMQ integration tests skipped: Docker is not available."
+            println "ActiveMQ broker startup skipped: Docker is not available. Integration tests that require a live broker will fail."
             return
         }
         def stdOut = new ByteArrayOutputStream()

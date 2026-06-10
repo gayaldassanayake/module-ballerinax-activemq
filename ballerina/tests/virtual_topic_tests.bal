@@ -37,6 +37,8 @@ isolated int vtLoadBalanceCount = 0;
     groups: ["integration", "virtual-topic"]
 }
 function testVirtualTopicFanOut() returns error? {
+    check drainQueue("Consumer.groupA.VirtualTopic.it.vt.fanout");
+    check drainQueue("Consumer.groupB.VirtualTopic.it.vt.fanout");
     lock { vtFanOutGroupACount = 0; }
     lock { vtFanOutGroupBCount = 0; }
 
@@ -99,6 +101,7 @@ function testVirtualTopicFanOut() returns error? {
     groups: ["integration", "virtual-topic"]
 }
 function testVirtualTopicLoadBalancing() returns error? {
+    check drainQueue("Consumer.workers.VirtualTopic.it.vt.lb");
     lock { vtLoadBalanceCount = 0; }
 
     // Both instances subscribe to the same consumer queue — they compete for messages.
