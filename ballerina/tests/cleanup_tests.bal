@@ -54,7 +54,7 @@ function testItNoMessageLossHappyPath() returns error? {
     Client prod = check new (brokerUrl, username = username, password = password);
     int messageCount = 10;
     foreach int i in 1 ... messageCount {
-        check prod->sendMessage("it.cleanup.nomsg.queue", {
+        check prod->send("it.cleanup.nomsg.queue", {
             messageId: string `it-cleanup-${i}`,
             payload: string `message-${i}`.toBytes()
         });
@@ -100,7 +100,7 @@ function testItListenerServiceCleanup() returns error? {
     check cleanupListener.'start();
 
     Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->sendMessage("it.cleanup.listener.queue", {
+    check prod->send("it.cleanup.listener.queue", {
         messageId: "it-cleanup-svc-01",
         payload: "cleanup test".toBytes()
     });

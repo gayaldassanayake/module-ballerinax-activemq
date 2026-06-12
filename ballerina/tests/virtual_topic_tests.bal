@@ -74,7 +74,7 @@ function testVirtualTopicFanOut() returns error? {
     runtime:sleep(3);
 
     Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->sendMessage("topic://VirtualTopic.it.vt.fanout", {
+    check prod->send("topic://VirtualTopic.it.vt.fanout", {
         messageId: "vt-fanout-01",
         payload: "VirtualTopic fan-out message".toBytes()
     });
@@ -136,7 +136,7 @@ function testVirtualTopicLoadBalancing() returns error? {
     Client prod = check new (brokerUrl, username = username, password = password);
     int messageCount = 4;
     foreach int i in 1 ... messageCount {
-        check prod->sendMessage("topic://VirtualTopic.it.vt.lb", {
+        check prod->send("topic://VirtualTopic.it.vt.lb", {
             messageId: string `vt-lb-${i}`,
             payload: string `lb-message-${i}`.toBytes()
         });

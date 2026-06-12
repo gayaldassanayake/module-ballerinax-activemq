@@ -45,14 +45,14 @@ public isolated client class Client {
     # Use `"topic://topicName"` to send to a JMS topic; plain names go to a queue.
     #
     # ```ballerina
-    # check mqClient->sendMessage("orders.queue", message);
-    # check mqClient->sendMessage("topic://order.events", eventMessage);
+    # check mqClient->send("orders.queue", message);
+    # check mqClient->send("topic://order.events", eventMessage);
     # ```
     #
     # + destination - Queue name or `"topic://topicName"` for a topic
     # + message - The message to send
     # + return - `activemq:Error` if sending fails, `()` otherwise
-    isolated remote function sendMessage(string destination, Message message) returns Error? = @java:Method {
+    isolated remote function send(string destination, Message message) returns Error? = @java:Method {
         'class: "io.ballerina.lib.activemq.client.Client"
     } external;
 
@@ -95,14 +95,14 @@ public isolated client class Client {
     } external;
 
     # Opens a new transacted session for atomic multi-message sends.
-    # All `sendMessage` calls on the returned `Transaction` are buffered until
+    # All `send` calls on the returned `Transaction` are buffered until
     # `'commit()` is called, which delivers them atomically. Call `'rollback()` or
     # `close()` to discard the buffered messages. Always call `close()` when done.
     #
     # ```ballerina
     # activemq:Transaction tx = check mqClient->'transaction();
-    # check tx->sendMessage("orders.queue", orderMsg);
-    # check tx->sendMessage("audit.queue", auditMsg);
+    # check tx->send("orders.queue", orderMsg);
+    # check tx->send("audit.queue", auditMsg);
     # check tx->'commit();
     # check tx->close();
     # ```

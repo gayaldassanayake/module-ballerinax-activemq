@@ -29,7 +29,7 @@ listener Listener clientTestListener = check new Listener(BROKER_URL);
 }
 isolated function testClientSendAndReceiveFromQueue() returns error? {
     Client mqClient = check new (BROKER_URL);
-    check mqClient->sendMessage("client.test.basic.queue", {
+    check mqClient->send("client.test.basic.queue", {
         messageId: "basic-1",
         payload: "Hello ActiveMQ".toBytes()
     });
@@ -67,7 +67,7 @@ isolated function testClientMultipleMessages() returns error? {
     Client mqClient = check new (BROKER_URL);
     string[] payloads = ["First", "Second", "Third"];
     foreach string p in payloads {
-        check mqClient->sendMessage("client.test.multi.queue", {
+        check mqClient->send("client.test.multi.queue", {
             messageId: p,
             payload: p.toBytes()
         });
@@ -92,7 +92,7 @@ isolated function testClientMultipleMessages() returns error? {
 }
 isolated function testClientMessageFieldsRoundtrip() returns error? {
     Client mqClient = check new (BROKER_URL);
-    check mqClient->sendMessage("client.test.fields.queue", {
+    check mqClient->send("client.test.fields.queue", {
         messageId: "fields-1",
         payload: "Roundtrip payload".toBytes(),
         correlationId: "corr-abc-123",
@@ -133,12 +133,12 @@ isolated function testClientMessageFieldsRoundtrip() returns error? {
 }
 isolated function testClientPersistenceField() returns error? {
     Client mqClient = check new (BROKER_URL);
-    check mqClient->sendMessage("client.test.persist.queue", {
+    check mqClient->send("client.test.persist.queue", {
         messageId: "p-1",
         payload: "persistent".toBytes(),
         persistent: true
     });
-    check mqClient->sendMessage("client.test.nonpersist.queue", {
+    check mqClient->send("client.test.nonpersist.queue", {
         messageId: "np-1",
         payload: "non-persistent".toBytes(),
         persistent: false
@@ -165,7 +165,7 @@ isolated function testClientPersistenceField() returns error? {
 }
 isolated function testClientReplyToField() returns error? {
     Client mqClient = check new (BROKER_URL);
-    check mqClient->sendMessage("client.test.replyto.queue", {
+    check mqClient->send("client.test.replyto.queue", {
         messageId: "rr-1",
         payload: "Request".toBytes(),
         replyTo: "client.test.reply.queue"
@@ -209,7 +209,7 @@ isolated function testClientSendToTopic() returns error? {
     runtime:sleep(2);
 
     Client mqClient = check new (BROKER_URL);
-    check mqClient->sendMessage("topic://client.test.topic", {
+    check mqClient->send("topic://client.test.topic", {
         messageId: "topic-msg-1",
         payload: "Topic message from Client".toBytes()
     });
@@ -223,7 +223,7 @@ isolated function testClientSendToTopic() returns error? {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 8: Calling sendMessage after close() returns an Error
+// Test 8: Calling send after close() returns an Error
 // ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
@@ -232,11 +232,11 @@ isolated function testClientSendToTopic() returns error? {
 isolated function testClientClose() returns error? {
     Client mqClient = check new (BROKER_URL);
     check mqClient->close();
-    Error? result = mqClient->sendMessage("client.test.close.queue", {
+    Error? result = mqClient->send("client.test.close.queue", {
         messageId: "after-close",
         payload: "should fail".toBytes()
     });
-    test:assertTrue(result is Error, "sendMessage after close should return an Error");
+    test:assertTrue(result is Error, "send after close should return an Error");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -248,7 +248,7 @@ isolated function testClientClose() returns error? {
 }
 isolated function testClientBrokerPopulatedFields() returns error? {
     Client mqClient = check new (BROKER_URL);
-    check mqClient->sendMessage("client.test.broker.fields.queue", {
+    check mqClient->send("client.test.broker.fields.queue", {
         messageId: "sent-id",
         payload: "Broker fields test".toBytes()
     });
@@ -279,12 +279,12 @@ isolated function testClientBrokerPopulatedFields() returns error? {
 isolated function testClientReceiveWithSelector() returns error? {
     Client mqClient = check new (BROKER_URL);
     // Send two messages: one with region=APAC and one with region=EMEA.
-    check mqClient->sendMessage("client.test.selector.queue", {
+    check mqClient->send("client.test.selector.queue", {
         messageId: "sel-apac",
         payload: "APAC order".toBytes(),
         properties: {"region": "APAC"}
     });
-    check mqClient->sendMessage("client.test.selector.queue", {
+    check mqClient->send("client.test.selector.queue", {
         messageId: "sel-emea",
         payload: "EMEA order".toBytes(),
         properties: {"region": "EMEA"}
@@ -315,7 +315,7 @@ isolated function testClientReceiveWithSelector() returns error? {
 }
 isolated function testClientReceiveWithoutSelector() returns error? {
     Client mqClient = check new (BROKER_URL);
-    check mqClient->sendMessage("client.test.no.selector.queue", {
+    check mqClient->send("client.test.no.selector.queue", {
         messageId: "no-sel-1",
         payload: "no selector".toBytes()
     });
@@ -335,11 +335,11 @@ isolated function testClientTransactionCommit() returns error? {
     Client mqClient = check new (BROKER_URL);
 
     Transaction tx = check mqClient->'transaction();
-    check tx->sendMessage("client.tx.commit.queue", {
+    check tx->send("client.tx.commit.queue", {
         messageId: "tx-1",
         payload: "tx message 1".toBytes()
     });
-    check tx->sendMessage("client.tx.commit.queue", {
+    check tx->send("client.tx.commit.queue", {
         messageId: "tx-2",
         payload: "tx message 2".toBytes()
     });
@@ -366,7 +366,7 @@ isolated function testClientTransactionRollback() returns error? {
     Client mqClient = check new (BROKER_URL);
 
     Transaction tx = check mqClient->'transaction();
-    check tx->sendMessage("client.tx.rollback.queue", {
+    check tx->send("client.tx.rollback.queue", {
         messageId: "tx-rb-1",
         payload: "will be discarded".toBytes()
     });
@@ -390,7 +390,7 @@ isolated function testClientTransactionCloseRollsBack() returns error? {
     Client mqClient = check new (BROKER_URL);
 
     Transaction tx = check mqClient->'transaction();
-    check tx->sendMessage("client.tx.close.queue", {
+    check tx->send("client.tx.close.queue", {
         messageId: "tx-close-1",
         payload: "implicit rollback".toBytes()
     });
@@ -426,7 +426,7 @@ function testClientSendRequest() returns error? {
             string? replyTo = message.replyTo;
             if replyTo is string {
                 Client responder = check new (BROKER_URL);
-                check responder->sendMessage(replyTo, {
+                check responder->send(replyTo, {
                     messageId: "rr-reply-1",
                     correlationId: message.correlationId,
                     payload: "Reply: received".toBytes()
@@ -499,7 +499,7 @@ isolated function testClientSendRequestTimeout() returns error? {
 function testClientScheduledDelivery() returns error? {
     Client mqClient = check new (BROKER_URL);
     // Schedule delivery 4 seconds in the future.
-    check mqClient->sendMessage("client.scheduled.queue", {
+    check mqClient->send("client.scheduled.queue", {
         messageId: "sched-1",
         payload: "scheduled message".toBytes(),
         scheduledDelay: 4000

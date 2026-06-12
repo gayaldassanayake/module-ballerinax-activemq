@@ -49,7 +49,7 @@ function testItAckAutoAcknowledge() returns error? {
     check ackAutoListener.'start();
 
     Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->sendMessage("it.ack.auto.queue", {
+    check prod->send("it.ack.auto.queue", {
         messageId: "it-ack-auto-01",
         payload: "auto-ack message".toBytes()
     });
@@ -91,7 +91,7 @@ function testItAckClientAcknowledgeExplicit() returns error? {
     check ackClientListener.'start();
 
     Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->sendMessage("it.ack.client.queue", {
+    check prod->send("it.ack.client.queue", {
         messageId: "it-ack-client-01",
         payload: "client-ack message".toBytes()
     });
@@ -119,7 +119,7 @@ function testItAckClientAcknowledgeRecover() returns error? {
 
     // Send test message
     Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->sendMessage("it.ack.recover.queue", {
+    check prod->send("it.ack.recover.queue", {
         messageId: "it-ack-recover-01",
         payload: "recover test".toBytes()
     });
@@ -208,7 +208,7 @@ function testItAckDupsOkAcknowledge() returns error? {
     check dupsOkListener.'start();
 
     Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->sendMessage("it.ack.dups.queue", {
+    check prod->send("it.ack.dups.queue", {
         messageId: "it-ack-dups-01",
         payload: "dups-ok message".toBytes()
     });

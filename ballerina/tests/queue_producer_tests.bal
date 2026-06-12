@@ -22,12 +22,12 @@ import ballerina/test;
 }
 function testItSendTextMessageToQueue() returns error? {
     Client mqClient = check new (brokerUrl, username = username, password = password);
-    Error? result = mqClient->sendMessage("it.prod.text.queue", {
+    Error? result = mqClient->send("it.prod.text.queue", {
         messageId: "it-prod-text-01",
         payload: "Hello, ActiveMQ 6.2.4!".toBytes()
     });
     check mqClient->close();
-    test:assertTrue(result is (), "sendMessage should succeed for a text payload");
+    test:assertTrue(result is (), "send should succeed for a text payload");
 }
 
 // TC-QUEUE-PROD-02: Send BytesMessage to queue
@@ -37,12 +37,12 @@ function testItSendTextMessageToQueue() returns error? {
 function testItSendBytesMessageToQueue() returns error? {
     Client mqClient = check new (brokerUrl, username = username, password = password);
     byte[] binaryPayload = [0x00, 0x01, 0x02, 0xFF, 0xFE, 0xAB, 0xCD];
-    Error? result = mqClient->sendMessage("it.prod.bytes.queue", {
+    Error? result = mqClient->send("it.prod.bytes.queue", {
         messageId: "it-prod-bytes-01",
         payload: binaryPayload
     });
     check mqClient->close();
-    test:assertTrue(result is (), "sendMessage should succeed for a binary payload");
+    test:assertTrue(result is (), "send should succeed for a binary payload");
 }
 
 // TC-QUEUE-PROD-03: Send MapMessage to queue
@@ -52,7 +52,7 @@ function testItSendBytesMessageToQueue() returns error? {
 }
 function testItSendMapMessageToQueue() returns error? {
     Client mqClient = check new (brokerUrl, username = username, password = password);
-    Error? result = mqClient->sendMessage("it.prod.map.queue", {
+    Error? result = mqClient->send("it.prod.map.queue", {
         messageId: "it-prod-map-01",
         payload: "{}".toBytes(),
         properties: {
@@ -62,7 +62,7 @@ function testItSendMapMessageToQueue() returns error? {
         }
     });
     check mqClient->close();
-    test:assertTrue(result is (), "sendMessage with a properties map should succeed");
+    test:assertTrue(result is (), "send with a properties map should succeed");
 }
 
 // TC-QUEUE-PROD-04: Send to invalid / non-existent destination

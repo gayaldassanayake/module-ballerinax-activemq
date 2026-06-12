@@ -65,7 +65,7 @@ public function main() returns error? {
         password = "admin"
     );
 
-    check mqClient->sendMessage("orders.queue", {
+    check mqClient->send("orders.queue", {
         messageId: "order-001",
         payload: "{'item':'book','qty':2}".toBytes(),
         properties: {"region": "APAC"}
@@ -128,10 +128,10 @@ Use `topicName` instead of `queueName` to subscribe to a JMS topic.
 
 ### 6. Publish to a topic
 
-Prefix the destination with `topic://` when calling `sendMessage`:
+Prefix the destination with `topic://` when calling `send`:
 
 ```ballerina
-check mqClient->sendMessage("topic://order.events", {
+check mqClient->send("topic://order.events", {
     messageId: "evt-001",
     payload: "order placed".toBytes()
 });
@@ -143,8 +143,8 @@ Group multiple sends into a single atomic operation:
 
 ```ballerina
 activemq:Transaction tx = check mqClient->'transaction();
-check tx->sendMessage("orders.queue",  {messageId: "tx-1", payload: "order A".toBytes()});
-check tx->sendMessage("audit.queue",   {messageId: "tx-2", payload: "audit A".toBytes()});
+check tx->send("orders.queue",  {messageId: "tx-1", payload: "order A".toBytes()});
+check tx->send("audit.queue",   {messageId: "tx-2", payload: "audit A".toBytes()});
 check tx->'commit();   // both messages are delivered together
 check tx->close();
 ```

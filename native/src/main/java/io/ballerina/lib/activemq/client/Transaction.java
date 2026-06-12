@@ -52,7 +52,7 @@ public final class Transaction {
      * @param bMessage     the Ballerina Message record to send
      * @return null on success, BError on failure
      */
-    public static Object sendMessage(BObject bTransaction, BString destination,
+    public static Object send(BObject bTransaction, BString destination,
                                      BMap<BString, Object> bMessage) {
         Session session = (Session) bTransaction.getNativeData(NATIVE_SESSION);
         if (session == null) {

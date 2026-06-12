@@ -18,7 +18,7 @@ import ballerina/jballerina.java;
 
 # Represents a transacted JMS session for atomic multi-message sends.
 # Obtain a `Transaction` by calling `mqClient->'transaction()`.
-# All `sendMessage` calls are buffered until `'commit()` delivers them atomically.
+# All `send` calls are buffered until `'commit()` delivers them atomically.
 # Always call `close()` when the transaction is no longer needed — even after an
 # error — to release the underlying JMS session.
 public isolated client class Transaction {
@@ -30,7 +30,7 @@ public isolated client class Transaction {
     # + destination - Queue name or `"topic://topicName"` to send the message to
     # + message - The message to enqueue in this transaction
     # + return - `activemq:Error` if sending fails, `()` otherwise
-    isolated remote function sendMessage(string destination, Message message) returns Error? = @java:Method {
+    isolated remote function send(string destination, Message message) returns Error? = @java:Method {
         'class: "io.ballerina.lib.activemq.client.Transaction"
     } external;
 

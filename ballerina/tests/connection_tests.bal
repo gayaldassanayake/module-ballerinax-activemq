@@ -58,11 +58,11 @@ function testItConnectionWrongHost() {
     Client|Error result = new Client("tcp://localhost:19999");
     if result is Client {
         // Lazy connection: the error surfaces on first use rather than at init time.
-        Error? sendErr = result->sendMessage("it.conn.discard.queue",
+        Error? sendErr = result->send("it.conn.discard.queue",
             {messageId: "dead-wrong-host", payload: "x".toBytes()});
         do { check result->close(); } on fail { }
         test:assertTrue(sendErr is Error,
-            "sendMessage should fail when the broker is unreachable");
+            "send should fail when the broker is unreachable");
     } else {
         // Eager connection: error surfaced at init time — also valid.
         test:assertTrue(result is Error,

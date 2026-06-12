@@ -161,7 +161,7 @@ public final class Client {
      * @param bMessage    the Ballerina Message record to send
      * @return null on success, BError on failure
      */
-    public static Object sendMessage(BObject bClient, BString destination, BMap<BString, Object> bMessage) {
+    public static Object send(BObject bClient, BString destination, BMap<BString, Object> bMessage) {
         Connection connection = (Connection) bClient.getNativeData(NATIVE_CONNECTION);
         if (connection == null) {
             return createError(ACTIVEMQ_ERROR, "ActiveMQ client is not initialized");

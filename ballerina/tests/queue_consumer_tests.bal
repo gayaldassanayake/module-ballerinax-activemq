@@ -23,7 +23,7 @@ import ballerina/test;
 function testItReceiveTextMessageFromQueue() returns error? {
     check drainQueue("it.cons.text.queue");
     Client mqClient = check new (brokerUrl, username = username, password = password);
-    check mqClient->sendMessage("it.cons.text.queue", {
+    check mqClient->send("it.cons.text.queue", {
         messageId: "it-cons-text-01",
         payload: "Hello Consumer".toBytes()
     });
@@ -44,7 +44,7 @@ function testItReceiveBytesMessageFromQueue() returns error? {
     check drainQueue("it.cons.bytes.queue");
     Client mqClient = check new (brokerUrl, username = username, password = password);
     byte[] original = [0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01];
-    check mqClient->sendMessage("it.cons.bytes.queue", {
+    check mqClient->send("it.cons.bytes.queue", {
         messageId: "it-cons-bytes-01",
         payload: original
     });
@@ -64,7 +64,7 @@ function testItReceiveBytesMessageFromQueue() returns error? {
 function testItReceiveMapMessageFromQueue() returns error? {
     check drainQueue("it.cons.map.queue");
     Client mqClient = check new (brokerUrl, username = username, password = password);
-    check mqClient->sendMessage("it.cons.map.queue", {
+    check mqClient->send("it.cons.map.queue", {
         messageId: "it-cons-map-01",
         payload: "{}".toBytes(),
         properties: {"environment": "test", "version": "2"}
