@@ -18,7 +18,11 @@
 
 package io.ballerina.lib.activemq.listener;
 
+import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
+import io.ballerina.runtime.api.types.MapType;
+import io.ballerina.runtime.api.types.PredefinedTypes;
+import io.ballerina.runtime.api.types.UnionType;
 import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
@@ -33,6 +37,7 @@ import jakarta.jms.Topic;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
+import java.util.logging.Logger;
 
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.BMESSAGE_NAME;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.CORRELATION_ID;
@@ -58,10 +63,18 @@ import static io.ballerina.lib.activemq.util.ModuleUtils.getModule;
  * @since 0.1.0
  */
 public class MessageMapper {
+    private static final Logger LOGGER = Logger.getLogger(MessageMapper.class.getName());
+
     static final BString TEXT = StringUtils.fromString("text");
     static final BString BINARY = StringUtils.fromString("binary");
     static final BString UNKNOWN = StringUtils.fromString("unknown");
     static final String NATIVE_MESSAGE = "native.message";
+
+    private static final UnionType PROPERTY_TYPE = TypeCreator.createUnionType(
+            PredefinedTypes.TYPE_BOOLEAN, PredefinedTypes.TYPE_INT, PredefinedTypes.TYPE_BYTE,
+            PredefinedTypes.TYPE_FLOAT, PredefinedTypes.TYPE_STRING);
+    private static final MapType BALLERINA_PROPERTY_TYPE = TypeCreator.createMapType(
+            "Property", PROPERTY_TYPE, getModule());
 
     public static BMap<BString, Object> toBallerinaMessage(Message message) throws JMSException {
         BMap<BString, Object> result = ValueCreator.createRecordValue(getModule(), BMESSAGE_NAME);
@@ -80,11 +93,11 @@ public class MessageMapper {
         }
 
         if (message.getJMSReplyTo() != null) {
-            result.put(REPLY_TO, StringUtils.fromString(toDestinationString(message.getJMSReplyTo())));
+            result.put(REPLY_TO, toBallerinaDestination(message.getJMSReplyTo()));
         }
 
         if (message.getJMSDestination() != null) {
-            result.put(DESTINATION_FIELD, StringUtils.fromString(message.getJMSDestination().toString()));
+            result.put(DESTINATION_FIELD, toBallerinaDestination(message.getJMSDestination()));
         }
 
         // Convert JMSDeliveryMode (1=non-persistent, 2=persistent) to boolean
@@ -118,7 +131,7 @@ public class MessageMapper {
         }
 
         // Custom Properties
-        BMap<BString, Object> props = ValueCreator.createMapValue();
+        BMap<BString, Object> props = ValueCreator.createMapValue(BALLERINA_PROPERTY_TYPE);
         Enumeration<?> propNames = message.getPropertyNames();
         while (propNames.hasMoreElements()) {
             String name = (String) propNames.nextElement();
@@ -130,6 +143,11 @@ public class MessageMapper {
                 props.put(bName, (long) i);
             } else if (value instanceof Long l) {
                 props.put(bName, l);
+            } else if (value instanceof Short sh) {
+                props.put(bName, (long) sh);
+            } else if (value instanceof Byte b) {
+                // Mask the signed JMS byte back to Ballerina's unsigned 0-255 range.
+                props.put(bName, b & 0xFF);
             } else if (value instanceof Float f) {
                 props.put(bName, (double) f);
             } else if (value instanceof Double d) {
@@ -137,7 +155,10 @@ public class MessageMapper {
             } else if (value instanceof Boolean b) {
                 props.put(bName, b);
             } else if (value != null) {
-                props.put(bName, StringUtils.fromString(value.toString()));
+                LOGGER.warning(() -> String.format(
+                        "Dropped message property '%s' of unsupported type '%s' - value cannot be represented as "
+                                + "an activemq:Property (boolean, int, byte, float, or string)",
+                        name, value.getClass().getSimpleName()));
             }
         }
         result.put(MESSAGE_PROPERTIES, props);
@@ -165,25 +186,32 @@ public class MessageMapper {
         return result;
     }
 
-    /**
-     * Converts a JMS Destination to its string representation with explicit type prefixes so
-     * that {@code Client.toJmsDestination()} can reconstruct the correct destination type later.
-     * Temporary destinations use a {@code "temp-queue://"} or {@code "temp-topic://"} prefix;
-     * regular queues use {@code "queue://"} and topics use {@code "topic://"}.
-     */
-    static String toDestinationString(jakarta.jms.Destination dest) throws JMSException {
-        if (dest instanceof TemporaryQueue tq) {
-            return "temp-queue://" + tq.getQueueName();
+    /** Converts a JMS destination to the public Ballerina Destination record. */
+    static BMap<BString, Object> toBallerinaDestination(jakarta.jms.Destination destination) throws JMSException {
+        if (destination instanceof TemporaryQueue queue) {
+            return createQueue(queue.getQueueName());
         }
-        if (dest instanceof TemporaryTopic tt) {
-            return "temp-topic://" + tt.getTopicName();
+        if (destination instanceof Queue queue) {
+            return createQueue(queue.getQueueName());
         }
-        if (dest instanceof Queue q) {
-            return "queue://" + q.getQueueName();
+        if (destination instanceof TemporaryTopic topic) {
+            return createTopic(topic.getTopicName());
         }
-        if (dest instanceof Topic t) {
-            return "topic://" + t.getTopicName();
+        if (destination instanceof Topic topic) {
+            return createTopic(topic.getTopicName());
         }
-        return dest.toString();
+        throw new JMSException("Unsupported JMS destination type: " + destination.getClass().getName());
+    }
+
+    private static BMap<BString, Object> createQueue(String name) {
+        BMap<BString, Object> queue = ValueCreator.createRecordValue(getModule(), "Queue");
+        queue.put(StringUtils.fromString("queueName"), StringUtils.fromString(name));
+        return queue;
+    }
+
+    private static BMap<BString, Object> createTopic(String name) {
+        BMap<BString, Object> topic = ValueCreator.createRecordValue(getModule(), "Topic");
+        topic.put(StringUtils.fromString("topicName"), StringUtils.fromString(name));
+        return topic;
     }
 }

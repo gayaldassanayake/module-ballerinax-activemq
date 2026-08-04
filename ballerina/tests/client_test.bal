@@ -29,11 +29,11 @@ listener Listener clientTestListener = check new Listener(BROKER_URL);
 }
 isolated function testClientSendAndReceiveFromQueue() returns error? {
     Client mqClient = check new (BROKER_URL);
-    check mqClient->send("client.test.basic.queue", {
+    check mqClient->send({queueName: "client.test.basic.queue"}, {
         messageId: "basic-1",
         payload: "Hello ActiveMQ".toBytes()
     });
-    Message? received = check mqClient->receiveMessage("client.test.basic.queue", 5000);
+    Message? received = check mqClient->receiveMessage({queueName: "client.test.basic.queue"}, 5000);
     check mqClient->close();
     test:assertTrue(received is Message, "should receive the sent message");
     if received is Message {
@@ -51,7 +51,7 @@ isolated function testClientSendAndReceiveFromQueue() returns error? {
 }
 isolated function testClientReceiveReturnsNilOnTimeout() returns error? {
     Client mqClient = check new (BROKER_URL);
-    Message? received = check mqClient->receiveMessage("client.test.empty.queue", 1000);
+    Message? received = check mqClient->receiveMessage({queueName: "client.test.empty.queue"}, 1000);
     check mqClient->close();
     test:assertTrue(received is (), "should return nil when no message arrives in timeout");
 }
@@ -67,16 +67,16 @@ isolated function testClientMultipleMessages() returns error? {
     Client mqClient = check new (BROKER_URL);
     string[] payloads = ["First", "Second", "Third"];
     foreach string p in payloads {
-        check mqClient->send("client.test.multi.queue", {
+        check mqClient->send({queueName: "client.test.multi.queue"}, {
             messageId: p,
             payload: p.toBytes()
         });
     }
     string[] received = [];
-    Message? msg = check mqClient->receiveMessage("client.test.multi.queue", 3000);
+    Message? msg = check mqClient->receiveMessage({queueName: "client.test.multi.queue"}, 3000);
     while msg is Message {
         received.push(check string:fromBytes(msg.payload));
-        msg = check mqClient->receiveMessage("client.test.multi.queue", 2000);
+        msg = check mqClient->receiveMessage({queueName: "client.test.multi.queue"}, 2000);
     }
     check mqClient->close();
     test:assertEquals(received.length(), 3, "should receive all 3 sent messages");
@@ -92,7 +92,7 @@ isolated function testClientMultipleMessages() returns error? {
 }
 isolated function testClientMessageFieldsRoundtrip() returns error? {
     Client mqClient = check new (BROKER_URL);
-    check mqClient->send("client.test.fields.queue", {
+    check mqClient->send({queueName: "client.test.fields.queue"}, {
         messageId: "fields-1",
         payload: "Roundtrip payload".toBytes(),
         correlationId: "corr-abc-123",
@@ -104,7 +104,7 @@ isolated function testClientMessageFieldsRoundtrip() returns error? {
             "region": "APAC"
         }
     });
-    Message? received = check mqClient->receiveMessage("client.test.fields.queue", 5000);
+    Message? received = check mqClient->receiveMessage({queueName: "client.test.fields.queue"}, 5000);
     check mqClient->close();
     test:assertTrue(received is Message, "should receive message");
     if received is Message {
@@ -114,9 +114,9 @@ isolated function testClientMessageFieldsRoundtrip() returns error? {
         test:assertTrue(persistent is boolean && persistent == true, "persistent should be true");
         int? priority = received.priority;
         test:assertTrue(priority is int && priority >= 7, "priority should be preserved");
-        map<anydata>? props = received.properties;
-        test:assertTrue(props is map<anydata>, "custom properties should be present");
-        if props is map<anydata> {
+        map<Property>? props = received.properties;
+        test:assertTrue(props is map<Property>, "custom properties should be present");
+        if props is map<Property> {
             test:assertEquals(props["category"], "electronics");
             test:assertEquals(props["region"], "APAC");
         }
@@ -133,18 +133,18 @@ isolated function testClientMessageFieldsRoundtrip() returns error? {
 }
 isolated function testClientPersistenceField() returns error? {
     Client mqClient = check new (BROKER_URL);
-    check mqClient->send("client.test.persist.queue", {
+    check mqClient->send({queueName: "client.test.persist.queue"}, {
         messageId: "p-1",
         payload: "persistent".toBytes(),
         persistent: true
     });
-    check mqClient->send("client.test.nonpersist.queue", {
+    check mqClient->send({queueName: "client.test.nonpersist.queue"}, {
         messageId: "np-1",
         payload: "non-persistent".toBytes(),
         persistent: false
     });
-    Message? pMsg = check mqClient->receiveMessage("client.test.persist.queue", 3000);
-    Message? npMsg = check mqClient->receiveMessage("client.test.nonpersist.queue", 3000);
+    Message? pMsg = check mqClient->receiveMessage({queueName: "client.test.persist.queue"}, 3000);
+    Message? npMsg = check mqClient->receiveMessage({queueName: "client.test.nonpersist.queue"}, 3000);
     check mqClient->close();
     test:assertTrue(pMsg is Message, "persistent message should be received");
     test:assertTrue(npMsg is Message, "non-persistent message should be received");
@@ -157,7 +157,7 @@ isolated function testClientPersistenceField() returns error? {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 6: replyTo header is preserved and returned as a destination string
+// Test 6: replyTo header is preserved and returned as a typed destination
 // ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
@@ -165,20 +165,20 @@ isolated function testClientPersistenceField() returns error? {
 }
 isolated function testClientReplyToField() returns error? {
     Client mqClient = check new (BROKER_URL);
-    check mqClient->send("client.test.replyto.queue", {
+    check mqClient->send({queueName: "client.test.replyto.queue"}, {
         messageId: "rr-1",
         payload: "Request".toBytes(),
-        replyTo: "client.test.reply.queue"
+        replyTo: {queueName: "client.test.reply.queue"}
     });
-    Message? received = check mqClient->receiveMessage("client.test.replyto.queue", 5000);
+    Message? received = check mqClient->receiveMessage({queueName: "client.test.replyto.queue"}, 5000);
     check mqClient->close();
     test:assertTrue(received is Message, "should receive message with replyTo set");
     if received is Message {
-        string? replyTo = received.replyTo;
-        test:assertTrue(replyTo is string, "replyTo should be present");
-        // ActiveMQ serialises queue destinations as "queue://name"
-        test:assertTrue((<string>replyTo).includes("client.test.reply.queue"),
-            "replyTo should contain the original queue name");
+        Destination? replyTo = received.replyTo;
+        test:assertTrue(replyTo is Queue, "replyTo should be a queue destination");
+        if replyTo is Queue {
+            test:assertEquals(replyTo.queueName, "client.test.reply.queue");
+        }
     }
 }
 
@@ -209,7 +209,7 @@ isolated function testClientSendToTopic() returns error? {
     runtime:sleep(2);
 
     Client mqClient = check new (BROKER_URL);
-    check mqClient->send("topic://client.test.topic", {
+    check mqClient->send({topicName: "client.test.topic"}, {
         messageId: "topic-msg-1",
         payload: "Topic message from Client".toBytes()
     });
@@ -232,7 +232,7 @@ isolated function testClientSendToTopic() returns error? {
 isolated function testClientClose() returns error? {
     Client mqClient = check new (BROKER_URL);
     check mqClient->close();
-    Error? result = mqClient->send("client.test.close.queue", {
+    Error? result = mqClient->send({queueName: "client.test.close.queue"}, {
         messageId: "after-close",
         payload: "should fail".toBytes()
     });
@@ -248,24 +248,26 @@ isolated function testClientClose() returns error? {
 }
 isolated function testClientBrokerPopulatedFields() returns error? {
     Client mqClient = check new (BROKER_URL);
-    check mqClient->send("client.test.broker.fields.queue", {
+    check mqClient->send({queueName: "client.test.broker.fields.queue"}, {
         messageId: "sent-id",
         payload: "Broker fields test".toBytes()
     });
-    Message? received = check mqClient->receiveMessage("client.test.broker.fields.queue", 5000);
+    Message? received = check mqClient->receiveMessage({queueName: "client.test.broker.fields.queue"}, 5000);
     check mqClient->close();
     test:assertTrue(received is Message, "should receive message");
     if received is Message {
         // Broker assigns its own message ID
-        test:assertTrue(received.messageId.length() > 0, "broker-assigned messageId should be present");
+        test:assertTrue(received.messageId is string, "broker-assigned messageId should be present");
+        test:assertTrue((<string>received.messageId).length() > 0, "broker-assigned messageId should be non-empty");
         // Broker sets the timestamp at send time
         int? timestamp = received.timestamp;
         test:assertTrue(timestamp is int && timestamp > 0, "broker-assigned timestamp should be > 0");
         // Destination should reflect where the message landed
-        string? destination = received.destination;
-        test:assertTrue(destination is string, "destination should be present");
-        test:assertTrue((<string>destination).includes("client.test.broker.fields.queue"),
-            "destination should contain the queue name");
+        Destination? destination = received.destination;
+        test:assertTrue(destination is Queue, "destination should be a queue destination");
+        if destination is Queue {
+            test:assertEquals(destination.queueName, "client.test.broker.fields.queue");
+        }
     }
 }
 
@@ -279,12 +281,12 @@ isolated function testClientBrokerPopulatedFields() returns error? {
 isolated function testClientReceiveWithSelector() returns error? {
     Client mqClient = check new (BROKER_URL);
     // Send two messages: one with region=APAC and one with region=EMEA.
-    check mqClient->send("client.test.selector.queue", {
+    check mqClient->send({queueName: "client.test.selector.queue"}, {
         messageId: "sel-apac",
         payload: "APAC order".toBytes(),
         properties: {"region": "APAC"}
     });
-    check mqClient->send("client.test.selector.queue", {
+    check mqClient->send({queueName: "client.test.selector.queue"}, {
         messageId: "sel-emea",
         payload: "EMEA order".toBytes(),
         properties: {"region": "EMEA"}
@@ -292,10 +294,10 @@ isolated function testClientReceiveWithSelector() returns error? {
 
     // Receive with selector — should get only APAC even though EMEA arrived first.
     Message? apacMsg = check mqClient->receiveMessage(
-        "client.test.selector.queue", 5000, "region = 'APAC'");
+        {queueName: "client.test.selector.queue"}, 5000, "region = 'APAC'");
     // Drain the EMEA message that was skipped.
     Message? emeaMsg = check mqClient->receiveMessage(
-        "client.test.selector.queue", 3000, "region = 'EMEA'");
+        {queueName: "client.test.selector.queue"}, 3000, "region = 'EMEA'");
     check mqClient->close();
 
     test:assertTrue(apacMsg is Message, "should receive the APAC message via selector");
@@ -315,11 +317,11 @@ isolated function testClientReceiveWithSelector() returns error? {
 }
 isolated function testClientReceiveWithoutSelector() returns error? {
     Client mqClient = check new (BROKER_URL);
-    check mqClient->send("client.test.no.selector.queue", {
+    check mqClient->send({queueName: "client.test.no.selector.queue"}, {
         messageId: "no-sel-1",
         payload: "no selector".toBytes()
     });
-    Message? msg = check mqClient->receiveMessage("client.test.no.selector.queue", 5000);
+    Message? msg = check mqClient->receiveMessage({queueName: "client.test.no.selector.queue"}, 5000);
     check mqClient->close();
     test:assertTrue(msg is Message, "receiveMessage without selector should still work");
 }
@@ -335,11 +337,11 @@ isolated function testClientTransactionCommit() returns error? {
     Client mqClient = check new (BROKER_URL);
 
     Transaction tx = check mqClient->'transaction();
-    check tx->send("client.tx.commit.queue", {
+    check tx->send({queueName: "client.tx.commit.queue"}, {
         messageId: "tx-1",
         payload: "tx message 1".toBytes()
     });
-    check tx->send("client.tx.commit.queue", {
+    check tx->send({queueName: "client.tx.commit.queue"}, {
         messageId: "tx-2",
         payload: "tx message 2".toBytes()
     });
@@ -347,8 +349,8 @@ isolated function testClientTransactionCommit() returns error? {
     check tx->close();
 
     // Both messages must now be visible.
-    Message? msg1 = check mqClient->receiveMessage("client.tx.commit.queue", 5000);
-    Message? msg2 = check mqClient->receiveMessage("client.tx.commit.queue", 5000);
+    Message? msg1 = check mqClient->receiveMessage({queueName: "client.tx.commit.queue"}, 5000);
+    Message? msg2 = check mqClient->receiveMessage({queueName: "client.tx.commit.queue"}, 5000);
     check mqClient->close();
 
     test:assertTrue(msg1 is Message, "first committed message should be received");
@@ -366,7 +368,7 @@ isolated function testClientTransactionRollback() returns error? {
     Client mqClient = check new (BROKER_URL);
 
     Transaction tx = check mqClient->'transaction();
-    check tx->send("client.tx.rollback.queue", {
+    check tx->send({queueName: "client.tx.rollback.queue"}, {
         messageId: "tx-rb-1",
         payload: "will be discarded".toBytes()
     });
@@ -374,7 +376,7 @@ isolated function testClientTransactionRollback() returns error? {
     check tx->close();
 
     // Queue must be empty — rollback discarded the message.
-    Message? msg = check mqClient->receiveMessage("client.tx.rollback.queue", 2000);
+    Message? msg = check mqClient->receiveMessage({queueName: "client.tx.rollback.queue"}, 2000);
     check mqClient->close();
     test:assertTrue(msg is (), "rolled-back message must not be delivered");
 }
@@ -390,13 +392,13 @@ isolated function testClientTransactionCloseRollsBack() returns error? {
     Client mqClient = check new (BROKER_URL);
 
     Transaction tx = check mqClient->'transaction();
-    check tx->send("client.tx.close.queue", {
+    check tx->send({queueName: "client.tx.close.queue"}, {
         messageId: "tx-close-1",
         payload: "implicit rollback".toBytes()
     });
     check tx->close(); // close without commit — broker must discard the message
 
-    Message? msg = check mqClient->receiveMessage("client.tx.close.queue", 2000);
+    Message? msg = check mqClient->receiveMessage({queueName: "client.tx.close.queue"}, 2000);
     check mqClient->close();
     test:assertTrue(msg is (), "closing a transaction without committing must roll back");
 }
@@ -423,8 +425,8 @@ function testClientSendRequest() returns error? {
     } service object {
         remote function onMessage(Message message) returns error? {
             lock { rrResponderCount += 1; }
-            string? replyTo = message.replyTo;
-            if replyTo is string {
+            Destination? replyTo = message.replyTo;
+            if replyTo is Destination {
                 Client responder = check new (BROKER_URL);
                 check responder->send(replyTo, {
                     messageId: "rr-reply-1",
@@ -445,7 +447,7 @@ function testClientSendRequest() returns error? {
     do {
         Client requester = check new (BROKER_URL);
         // Use correlationId (a JMS header) to tag the request for matching with the reply.
-        reply = check requester->sendRequest("client.rr.request.queue", {
+        reply = check requester->sendRequest({queueName: "client.rr.request.queue"}, {
             messageId: "rr-req-1",
             correlationId: "rr-corr-id-001",
             payload: "Request".toBytes()
@@ -479,7 +481,7 @@ function testClientSendRequest() returns error? {
 isolated function testClientSendRequestTimeout() returns error? {
     Client mqClient = check new (BROKER_URL);
     // Nobody is listening on this queue, so the reply never arrives.
-    Message? reply = check mqClient->sendRequest("client.rr.nobody.queue", {
+    Message? reply = check mqClient->sendRequest({queueName: "client.rr.nobody.queue"}, {
         messageId: "rr-timeout-1",
         payload: "orphan request".toBytes()
     }, 1500);
@@ -499,19 +501,60 @@ isolated function testClientSendRequestTimeout() returns error? {
 function testClientScheduledDelivery() returns error? {
     Client mqClient = check new (BROKER_URL);
     // Schedule delivery 4 seconds in the future.
-    check mqClient->send("client.scheduled.queue", {
+    check mqClient->send({queueName: "client.scheduled.queue"}, {
         messageId: "sched-1",
         payload: "scheduled message".toBytes(),
         scheduledDelay: 4000
     });
 
     // Immediate receive must time out — message is not yet due.
-    Message? early = check mqClient->receiveMessage("client.scheduled.queue", 1000);
+    Message? early = check mqClient->receiveMessage({queueName: "client.scheduled.queue"}, 1000);
     test:assertTrue(early is (), "message should not be delivered before the scheduled delay");
 
     // Wait for the scheduler to release the message.
     runtime:sleep(6);
-    Message? msg = check mqClient->receiveMessage("client.scheduled.queue", 3000);
+    Message? msg = check mqClient->receiveMessage({queueName: "client.scheduled.queue"}, 3000);
     check mqClient->close();
     test:assertTrue(msg is Message, "message should be delivered after the scheduled delay");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 18: Every `activemq:Property` value type (boolean, int, byte, float, string)
+//          survives the send/receive roundtrip with the correct Ballerina type
+// ─────────────────────────────────────────────────────────────────────────────
+
+@test:Config {
+    groups: ["client"]
+}
+isolated function testClientPropertyTypesRoundtrip() returns error? {
+    Client mqClient = check new (BROKER_URL);
+    byte byteProp = 200;
+    check mqClient->send({queueName: "client.test.propertytypes.queue"}, {
+        payload: "property types".toBytes(),
+        properties: {
+            "strProp": "hello",
+            "intProp": 42,
+            "boolProp": true,
+            "floatProp": 3.5,
+            "byteProp": byteProp
+        }
+    });
+    Message? received = check mqClient->receiveMessage({queueName: "client.test.propertytypes.queue"}, 5000);
+    check mqClient->close();
+    test:assertTrue(received is Message, "should receive the message");
+    if received is Message {
+        map<Property>? props = received.properties;
+        test:assertTrue(props is map<Property>, "properties should be present");
+        if props is map<Property> {
+            test:assertEquals(props["strProp"], "hello");
+            test:assertEquals(props["intProp"], 42);
+            test:assertEquals(props["boolProp"], true);
+            test:assertEquals(props["floatProp"], 3.5);
+            Property? roundtrippedByte = props["byteProp"];
+            test:assertTrue(roundtrippedByte is byte, "byteProp should roundtrip as a byte");
+            if roundtrippedByte is byte {
+                test:assertEquals(roundtrippedByte, byteProp);
+            }
+        }
+    }
 }

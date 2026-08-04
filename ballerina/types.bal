@@ -19,6 +19,21 @@ import ballerina/crypto;
 # Represents an ActiveMQ service object that can be attached to an `activemq:Listener`.
 public type Service distinct service object {};
 
+# Represents a queue destination for point-to-point messaging.
+public type Queue record {|
+    # The name of the queue.
+    string queueName;
+|};
+
+# Represents a topic destination for publish/subscribe messaging.
+public type Topic record {|
+    # The name of the topic.
+    string topicName;
+|};
+
+# Represents a JMS destination.
+public type Destination Queue|Topic;
+
 # ActiveMQ broker connection configuration.
 #
 # + username - Username for broker authentication (must be provided with password)
@@ -91,9 +106,8 @@ public type CertKey record {|
 #               since epoch)
 # + correlationId - Optional identifier used to correlate this message with another (typically used
 #                   in request-reply patterns)
-# + replyTo - Name of the queue or topic where replies should be sent (used in
-#             request-reply patterns)
-# + destination - The destination (queue or topic name) where the message was sent
+# + replyTo - Queue or topic where replies should be sent
+# + destination - Queue or topic where the message was sent
 # + persistent - Message delivery mode: true for persistent (survives broker restarts), false for
 #                non-persistent (faster but may be lost on broker failure)
 # + redelivered - Indicates whether this message is being redelivered after a previous delivery
@@ -108,7 +122,8 @@ public type CertKey record {|
 #              priority)
 # + userId - Identifier of the user who sent the message (if available from the broker)
 # + format - Format identifier of the message payload (e.g., "text", "binary", "json")
-# + properties - Application-specific custom properties attached to the message
+# + properties - Application-specific custom properties attached to the message. Values are
+#                restricted to the types the JMS specification allows as message properties
 # + payload - The message content as a byte array
 # + scheduledDelay - Delay in milliseconds before the broker first delivers the message.
 #                   Requires `schedulerSupport="true"` in the ActiveMQ broker configuration.
@@ -120,11 +135,11 @@ public type CertKey record {|
 #                  (for example, `"0 0 12 * * ?"`). Overrides delay/period/repeat when set.
 #                  Requires the broker scheduler to be enabled.
 public type Message record {|
-    string messageId;
+    string messageId?;
     int timestamp?;
     string correlationId?;
-    string replyTo?;
-    string destination?;
+    Destination replyTo?;
+    Destination destination?;
     boolean persistent?;
     boolean redelivered?;
     string 'type?;
@@ -133,13 +148,16 @@ public type Message record {|
     int priority?;
     string userId?;
     string format?;
-    map<anydata> properties?;
+    map<Property> properties?;
     byte[] payload;
     int scheduledDelay?;
     int scheduledPeriod?;
     int scheduledRepeat?;
     string scheduledCron?;
 |};
+
+# Represents the allowed value types for a JMS message property.
+public type Property boolean|int|byte|float|string;
 
 # Defines the supported JMS message consumer types for ActiveMQ topic subscriptions.
 public enum ConsumerType {

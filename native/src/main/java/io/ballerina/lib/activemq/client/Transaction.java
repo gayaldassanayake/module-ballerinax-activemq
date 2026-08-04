@@ -48,18 +48,18 @@ public final class Transaction {
      * until {@link #commit(BObject)} is called.
      *
      * @param bTransaction the Ballerina Transaction object
-     * @param destination  the destination name; prefix with {@code "topic://"} for a JMS topic
+     * @param destination  the Ballerina queue or topic destination record
      * @param bMessage     the Ballerina Message record to send
      * @return null on success, BError on failure
      */
-    public static Object send(BObject bTransaction, BString destination,
+    public static Object send(BObject bTransaction, BMap<BString, Object> destination,
                                      BMap<BString, Object> bMessage) {
         Session session = (Session) bTransaction.getNativeData(NATIVE_SESSION);
         if (session == null) {
             return createError(ACTIVEMQ_ERROR, "Transaction session is not initialized or already closed");
         }
         try {
-            Destination dest = Client.toJmsDestination(session, destination.getValue());
+            Destination dest = Client.toJmsDestination(session, destination);
             MessageProducer producer = session.createProducer(dest);
             try {
                 Message jmsMsg = Client.toJmsMessage(session, bMessage);

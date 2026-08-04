@@ -36,6 +36,7 @@ public isolated class Listener {
     # + configurations - The connection configurations including authentication, SSL, and policies
     # + return - `activemq:Error` if the initialization fails, `()` otherwise
     public isolated function init(string url, *ConnectionConfiguration configurations) returns Error? {
+        check validateConnectionConfigurations(configurations);
         return self.initListener(url, configurations);
     }
 

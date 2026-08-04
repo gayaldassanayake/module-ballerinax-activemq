@@ -16,13 +16,27 @@
 
 import ballerina/test;
 
+// TC-QUEUE-PROD-00: Queue destinations are represented by the public Queue type.
+@test:Config {
+    groups: ["integration", "queue-producer"]
+}
+function testItSendTextMessageToTypedQueue() returns error? {
+    Client mqClient = check new (brokerUrl, username = username, password = password);
+    Error? result = mqClient->send({queueName: "it.prod.typed.queue"}, {
+        messageId: "it-prod-typed-01",
+        payload: "Hello, typed queue!".toBytes()
+    });
+    check mqClient->close();
+    test:assertTrue(result is (), "send should succeed for a typed queue destination");
+}
+
 // TC-QUEUE-PROD-01: Send TextMessage to queue
 @test:Config {
     groups: ["integration", "queue-producer"]
 }
 function testItSendTextMessageToQueue() returns error? {
     Client mqClient = check new (brokerUrl, username = username, password = password);
-    Error? result = mqClient->send("it.prod.text.queue", {
+    Error? result = mqClient->send({queueName: "it.prod.text.queue"}, {
         messageId: "it-prod-text-01",
         payload: "Hello, ActiveMQ 6.2.4!".toBytes()
     });
@@ -37,7 +51,7 @@ function testItSendTextMessageToQueue() returns error? {
 function testItSendBytesMessageToQueue() returns error? {
     Client mqClient = check new (brokerUrl, username = username, password = password);
     byte[] binaryPayload = [0x00, 0x01, 0x02, 0xFF, 0xFE, 0xAB, 0xCD];
-    Error? result = mqClient->send("it.prod.bytes.queue", {
+    Error? result = mqClient->send({queueName: "it.prod.bytes.queue"}, {
         messageId: "it-prod-bytes-01",
         payload: binaryPayload
     });
@@ -52,7 +66,7 @@ function testItSendBytesMessageToQueue() returns error? {
 }
 function testItSendMapMessageToQueue() returns error? {
     Client mqClient = check new (brokerUrl, username = username, password = password);
-    Error? result = mqClient->send("it.prod.map.queue", {
+    Error? result = mqClient->send({queueName: "it.prod.map.queue"}, {
         messageId: "it-prod-map-01",
         payload: "{}".toBytes(),
         properties: {

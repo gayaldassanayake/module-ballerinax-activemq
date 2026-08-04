@@ -65,8 +65,7 @@ public function main() returns error? {
         password = "admin"
     );
 
-    check mqClient->send("orders.queue", {
-        messageId: "order-001",
+    check mqClient->send({queueName: "orders.queue"}, {
         payload: "{'item':'book','qty':2}".toBytes(),
         properties: {"region": "APAC"}
     });
@@ -74,6 +73,10 @@ public function main() returns error? {
     check mqClient->close();
 }
 ```
+
+`messageId` is optional — the JMS provider assigns the real one on send, and it's populated on
+any message you receive back. Set it yourself only if you have a specific reason to; use
+`correlationId` instead for application-level correlation (e.g. request-reply matching).
 
 ### 4. Receive a message from a queue
 
@@ -87,7 +90,7 @@ public function main() returns error? {
         password = "admin"
     );
 
-    activemq:Message? msg = check mqClient->receiveMessage("orders.queue", 5000);
+    activemq:Message? msg = check mqClient->receiveMessage({queueName: "orders.queue"}, 5000);
     if msg is activemq:Message {
         string text = check string:fromBytes(msg.payload);
         io:println("Received: ", text);
@@ -128,10 +131,10 @@ Use `topicName` instead of `queueName` to subscribe to a JMS topic.
 
 ### 6. Publish to a topic
 
-Prefix the destination with `topic://` when calling `send`:
+Use a `Topic` destination when calling `send`:
 
 ```ballerina
-check mqClient->send("topic://order.events", {
+check mqClient->send({topicName: "order.events"}, {
     messageId: "evt-001",
     payload: "order placed".toBytes()
 });
@@ -143,8 +146,8 @@ Group multiple sends into a single atomic operation:
 
 ```ballerina
 activemq:Transaction tx = check mqClient->'transaction();
-check tx->send("orders.queue",  {messageId: "tx-1", payload: "order A".toBytes()});
-check tx->send("audit.queue",   {messageId: "tx-2", payload: "audit A".toBytes()});
+check tx->send({queueName: "orders.queue"}, {messageId: "tx-1", payload: "order A".toBytes()});
+check tx->send({queueName: "audit.queue"},  {messageId: "tx-2", payload: "audit A".toBytes()});
 check tx->'commit();   // both messages are delivered together
 check tx->close();
 ```
@@ -158,7 +161,7 @@ messages.
 and blocks until the responder sends a reply:
 
 ```ballerina
-activemq:Message? reply = check mqClient->sendRequest("pricing.service.queue", {
+activemq:Message? reply = check mqClient->sendRequest({queueName: "pricing.service.queue"}, {
     messageId:     "req-001",
     correlationId: "corr-abc",
     payload:       "{'sku':'B007'}".toBytes()
@@ -195,7 +198,7 @@ Receive only messages whose properties match a JMS selector expression:
 ```ballerina
 // Only receive messages where the "region" property equals "APAC"
 activemq:Message? msg = check mqClient->receiveMessage(
-    "orders.queue", 5000, "region = 'APAC'"
+    {queueName: "orders.queue"}, 5000, "region = 'APAC'"
 );
 ```
 

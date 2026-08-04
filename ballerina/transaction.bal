@@ -27,10 +27,16 @@ public isolated client class Transaction {
     # consumers until `'commit()` is called. Calling `'rollback()` or `close()`
     # without committing discards all unsent messages.
     #
-    # + destination - Queue name or `"topic://topicName"` to send the message to
+    # + destination - Queue or topic to send the message to
     # + message - The message to enqueue in this transaction
     # + return - `activemq:Error` if sending fails, `()` otherwise
-    isolated remote function send(string destination, Message message) returns Error? = @java:Method {
+    isolated remote function send(Destination destination, Message message) returns Error? {
+        check validateMessage(message);
+        return self.externSend(destination, message);
+    }
+
+    isolated function externSend(Destination destination, Message message) returns Error? = @java:Method {
+        name: "send",
         'class: "io.ballerina.lib.activemq.client.Transaction"
     } external;
 

@@ -54,7 +54,7 @@ function testItNoMessageLossHappyPath() returns error? {
     Client prod = check new (brokerUrl, username = username, password = password);
     int messageCount = 10;
     foreach int i in 1 ... messageCount {
-        check prod->send("it.cleanup.nomsg.queue", {
+        check prod->send({queueName: "it.cleanup.nomsg.queue"}, {
             messageId: string `it-cleanup-${i}`,
             payload: string `message-${i}`.toBytes()
         });
@@ -64,10 +64,10 @@ function testItNoMessageLossHappyPath() returns error? {
     // Receive all 10 messages synchronously to verify no loss and no duplication.
     Client cons = check new (brokerUrl, username = username, password = password);
     int received = 0;
-    Message? msg = check cons->receiveMessage("it.cleanup.nomsg.queue", 5000);
+    Message? msg = check cons->receiveMessage({queueName: "it.cleanup.nomsg.queue"}, 5000);
     while msg is Message {
         received += 1;
-        msg = check cons->receiveMessage("it.cleanup.nomsg.queue", 2000);
+        msg = check cons->receiveMessage({queueName: "it.cleanup.nomsg.queue"}, 2000);
     }
     check cons->close();
 
@@ -100,7 +100,7 @@ function testItListenerServiceCleanup() returns error? {
     check cleanupListener.'start();
 
     Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->send("it.cleanup.listener.queue", {
+    check prod->send({queueName: "it.cleanup.listener.queue"}, {
         messageId: "it-cleanup-svc-01",
         payload: "cleanup test".toBytes()
     });

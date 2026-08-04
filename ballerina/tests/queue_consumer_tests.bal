@@ -23,11 +23,11 @@ import ballerina/test;
 function testItReceiveTextMessageFromQueue() returns error? {
     check drainQueue("it.cons.text.queue");
     Client mqClient = check new (brokerUrl, username = username, password = password);
-    check mqClient->send("it.cons.text.queue", {
+    check mqClient->send({queueName: "it.cons.text.queue"}, {
         messageId: "it-cons-text-01",
         payload: "Hello Consumer".toBytes()
     });
-    Message? received = check mqClient->receiveMessage("it.cons.text.queue", 5000);
+    Message? received = check mqClient->receiveMessage({queueName: "it.cons.text.queue"}, 5000);
     check mqClient->close();
     test:assertTrue(received is Message, "should receive the sent TextMessage");
     if received is Message {
@@ -44,11 +44,11 @@ function testItReceiveBytesMessageFromQueue() returns error? {
     check drainQueue("it.cons.bytes.queue");
     Client mqClient = check new (brokerUrl, username = username, password = password);
     byte[] original = [0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01];
-    check mqClient->send("it.cons.bytes.queue", {
+    check mqClient->send({queueName: "it.cons.bytes.queue"}, {
         messageId: "it-cons-bytes-01",
         payload: original
     });
-    Message? received = check mqClient->receiveMessage("it.cons.bytes.queue", 5000);
+    Message? received = check mqClient->receiveMessage({queueName: "it.cons.bytes.queue"}, 5000);
     check mqClient->close();
     test:assertTrue(received is Message, "should receive the sent BytesMessage");
     if received is Message {
@@ -64,18 +64,18 @@ function testItReceiveBytesMessageFromQueue() returns error? {
 function testItReceiveMapMessageFromQueue() returns error? {
     check drainQueue("it.cons.map.queue");
     Client mqClient = check new (brokerUrl, username = username, password = password);
-    check mqClient->send("it.cons.map.queue", {
+    check mqClient->send({queueName: "it.cons.map.queue"}, {
         messageId: "it-cons-map-01",
         payload: "{}".toBytes(),
         properties: {"environment": "test", "version": "2"}
     });
-    Message? received = check mqClient->receiveMessage("it.cons.map.queue", 5000);
+    Message? received = check mqClient->receiveMessage({queueName: "it.cons.map.queue"}, 5000);
     check mqClient->close();
     test:assertTrue(received is Message, "should receive the message with properties");
     if received is Message {
-        map<anydata>? props = received.properties;
-        test:assertTrue(props is map<anydata>, "properties should be present in the received message");
-        if props is map<anydata> {
+        map<Property>? props = received.properties;
+        test:assertTrue(props is map<Property>, "properties should be present in the received message");
+        if props is map<Property> {
             test:assertEquals(props["environment"], "test");
             test:assertEquals(props["version"], "2");
         }
@@ -88,7 +88,7 @@ function testItReceiveMapMessageFromQueue() returns error? {
 }
 function testItReceiveTimeoutEmptyQueue() returns error? {
     Client mqClient = check new (brokerUrl, username = username, password = password);
-    Message? received = check mqClient->receiveMessage("it.cons.empty.queue", 1000);
+    Message? received = check mqClient->receiveMessage({queueName: "it.cons.empty.queue"}, 1000);
     check mqClient->close();
     test:assertTrue(received is (),
         "should return () — not an error — when no message arrives within the timeout");

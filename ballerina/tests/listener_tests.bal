@@ -48,7 +48,7 @@ function testItListenerReceivesTextMessage() returns error? {
     check itListener.attach(listenerTextSvc, "it-listener-text-svc");
 
     Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->send("it.listener.text.queue", {
+    check prod->send({queueName: "it.listener.text.queue"}, {
         messageId: "it-listener-text-01",
         payload: "Listener integration test".toBytes()
     });
@@ -89,7 +89,7 @@ function testItListenerReceivesMultipleMessages() returns error? {
 
     Client prod = check new (brokerUrl, username = username, password = password);
     foreach int i in 1 ... 5 {
-        check prod->send("it.listener.order.queue", {
+        check prod->send({queueName: "it.listener.order.queue"}, {
             messageId: string `order-${i}`,
             payload: string `msg-${i}`.toBytes()
         });
@@ -154,7 +154,7 @@ function testItListenerGracefulStop() returns error? {
     check stopListener.'start();
 
     Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->send("it.listener.stop.queue", {
+    check prod->send({queueName: "it.listener.stop.queue"}, {
         messageId: "it-stop-pre-01",
         payload: "before-stop".toBytes()
     });
@@ -167,7 +167,7 @@ function testItListenerGracefulStop() returns error? {
 
     check stopListener.gracefulStop();
 
-    check prod->send("it.listener.stop.queue", {
+    check prod->send({queueName: "it.listener.stop.queue"}, {
         messageId: "it-stop-post-01",
         payload: "after-stop".toBytes()
     });

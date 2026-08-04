@@ -25,6 +25,10 @@ Message? receivedMessageWithFields = ();
     groups: ["message-fields"]
 }
 function testAllMessageFields() returns error? {
+    check drainQueue("message-fields-test-queue");
+    lock {
+        receivedMessageWithFields = ();
+    }
     Service consumerSvc = @ServiceConfig {
         queueName: "message-fields-test-queue",
         pollingInterval: 1,
@@ -47,16 +51,16 @@ function testAllMessageFields() returns error? {
     }
     test:assertTrue(msg is Message, "Message should be received");
     if msg is Message {
-        test:assertTrue(msg.messageId.length() > 0, "messageId should be present");
+        test:assertTrue(msg.messageId is string, "messageId should be present");
+        test:assertTrue((<string>msg.messageId).length() > 0, "messageId should be non-empty");
 
         test:assertTrue(msg.timestamp is int, "timestamp should be present");
         int timestamp = <int>msg.timestamp;
         test:assertTrue(timestamp > 0, "timestamp should be greater than 0");
 
-        test:assertTrue(msg.destination is string, "destination should be present");
-        string destination = <string>msg.destination;
-        test:assertTrue(destination.includes("message-fields-test-queue"),
-            "destination should contain queue name");
+        test:assertTrue(msg.destination is Queue, "destination should be a queue destination");
+        Queue destination = <Queue>msg.destination;
+        test:assertEquals(destination.queueName, "message-fields-test-queue");
 
         test:assertTrue(msg.persistent is boolean, "persistent should be present");
         boolean persistent = <boolean>msg.persistent;
@@ -84,15 +88,15 @@ function testAllMessageFields() returns error? {
         string correlationId = <string>msg.correlationId;
         test:assertEquals(correlationId, "test-correlation-id", "correlationId should be 'test-correlation-id'");
 
-        test:assertTrue(msg.replyTo is string, "replyTo should be present");
-        string replyTo = <string>msg.replyTo;
-        test:assertEquals(replyTo, "queue://message-fields-test-queue", 
-            "replyTo should be 'queue://message-fields-test-queue'");
+        test:assertTrue(msg.replyTo is Queue, "replyTo should be a queue destination");
+        Queue replyTo = <Queue>msg.replyTo;
+        test:assertEquals(replyTo.queueName, "message-fields-test-queue");
 
         test:assertTrue(msg.payload.length() > 0, "payload should be present");
         string payloadStr = check string:fromBytes(msg.payload);
         test:assertEquals(payloadStr, "Test message with all headers", "payload content should match");
     }
+    check messageFieldsListener.detach(consumerSvc);
 }
 
 Message? redeliveredMessage = ();

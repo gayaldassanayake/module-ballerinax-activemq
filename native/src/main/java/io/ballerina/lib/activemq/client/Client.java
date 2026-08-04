@@ -41,8 +41,6 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.ActiveMQPrefetchPolicy;
 import org.apache.activemq.ActiveMQSslConnectionFactory;
 import org.apache.activemq.RedeliveryPolicy;
-import org.apache.activemq.command.ActiveMQTempQueue;
-import org.apache.activemq.command.ActiveMQTempTopic;
 
 import java.security.SecureRandom;
 import java.util.Objects;
@@ -71,6 +69,8 @@ import static io.ballerina.lib.activemq.util.ActiveMQConstants.SCHEDULED_CRON;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.SCHEDULED_DELAY;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.SCHEDULED_PERIOD;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.SCHEDULED_REPEAT;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.TOPIC_NAME;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.QUEUE_NAME;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.TYPE_FIELD;
 import static io.ballerina.lib.activemq.util.CommonUtils.createError;
 import static io.ballerina.lib.activemq.util.ModuleUtils.getModule;
@@ -86,9 +86,6 @@ import static io.ballerina.lib.activemq.util.SslUtils.getTrustmanagers;
 public final class Client {
 
     static final String NATIVE_CONNECTION = "native.connection";
-    // Prefix used in destination strings to indicate a JMS Topic vs Queue.
-    static final String TOPIC_PREFIX = "topic://";
-
     private Client() {
     }
 
@@ -161,7 +158,7 @@ public final class Client {
      * @param bMessage    the Ballerina Message record to send
      * @return null on success, BError on failure
      */
-    public static Object send(BObject bClient, BString destination, BMap<BString, Object> bMessage) {
+    public static Object send(BObject bClient, BMap<BString, Object> destination, BMap<BString, Object> bMessage) {
         Connection connection = (Connection) bClient.getNativeData(NATIVE_CONNECTION);
         if (connection == null) {
             return createError(ACTIVEMQ_ERROR, "ActiveMQ client is not initialized");
@@ -169,7 +166,7 @@ public final class Client {
         try {
             Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             try {
-                Destination dest = toJmsDestination(session, destination.getValue());
+                Destination dest = toJmsDestination(session, destination);
                 MessageProducer producer = session.createProducer(dest);
                 try {
                     Message jmsMsg = toJmsMessage(session, bMessage);
@@ -201,7 +198,7 @@ public final class Client {
      * @param messageSelector JMS selector expression (BString) or null/Ballerina-nil for none
      * @return BMap (Ballerina Message), null on timeout, or BError on failure
      */
-    public static Object receiveMessage(BObject bClient, BString destination, long timeoutMs,
+    public static Object receiveMessage(BObject bClient, BMap<BString, Object> destination, long timeoutMs,
                                         Object messageSelector) {
         Connection connection = (Connection) bClient.getNativeData(NATIVE_CONNECTION);
         if (connection == null) {
@@ -210,7 +207,7 @@ public final class Client {
         try {
             Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             try {
-                Destination dest = toJmsDestination(session, destination.getValue());
+                Destination dest = toJmsDestination(session, destination);
                 String selector = messageSelector instanceof BString bs ? bs.getValue() : null;
                 MessageConsumer consumer = selector != null
                         ? session.createConsumer(dest, selector)
@@ -243,7 +240,7 @@ public final class Client {
      * @param timeoutMs   maximum wait time for the reply in milliseconds
      * @return BMap (Ballerina Message reply), null on timeout, or BError on failure
      */
-    public static Object sendRequest(BObject bClient, BString destination,
+    public static Object sendRequest(BObject bClient, BMap<BString, Object> destination,
                                      BMap<BString, Object> bMessage, long timeoutMs) {
         Connection connection = (Connection) bClient.getNativeData(NATIVE_CONNECTION);
         if (connection == null) {
@@ -256,7 +253,7 @@ public final class Client {
                 try {
                     MessageConsumer replyConsumer = session.createConsumer(replyQueue);
                     try {
-                        Destination dest = toJmsDestination(session, destination.getValue());
+                        Destination dest = toJmsDestination(session, destination);
                         MessageProducer producer = session.createProducer(dest);
                         try {
                             Message jmsMsg = toJmsMessage(session, bMessage);
@@ -332,35 +329,17 @@ public final class Client {
         return null;
     }
 
-    // Destination string prefixes — keep in sync with MessageMapper.toDestinationString().
-    static final String QUEUE_PREFIX = "queue://";
-    static final String TEMP_QUEUE_PREFIX = "temp-queue://";
-    static final String TEMP_TOPIC_PREFIX = "temp-topic://";
-
-    /**
-     * Creates a JMS Destination from a destination string. Recognised prefixes:
-     * <ul>
-     *   <li>{@code "topic://"} — JMS Topic</li>
-     *   <li>{@code "temp-queue://"} — ActiveMQ TemporaryQueue (used for request-reply)</li>
-     *   <li>{@code "temp-topic://"} — ActiveMQ TemporaryTopic</li>
-     *   <li>{@code "queue://"} — regular JMS Queue (prefix stripped)</li>
-     *   <li>anything else — treated as a plain queue name</li>
-     * </ul>
-     */
-    static Destination toJmsDestination(Session session, String dest) throws JMSException {
-        if (dest.startsWith(TOPIC_PREFIX)) {
-            return session.createTopic(dest.substring(TOPIC_PREFIX.length()));
+    /** Creates a JMS Destination from the public Ballerina Destination record. */
+    static Destination toJmsDestination(Session session, BMap<BString, Object> destination) throws JMSException {
+        Object topicName = destination.get(TOPIC_NAME);
+        if (topicName instanceof BString topic) {
+            return session.createTopic(topic.getValue());
         }
-        if (dest.startsWith(TEMP_QUEUE_PREFIX)) {
-            return new ActiveMQTempQueue(dest.substring(TEMP_QUEUE_PREFIX.length()));
+        Object queueName = destination.get(QUEUE_NAME);
+        if (queueName instanceof BString queue) {
+            return session.createQueue(queue.getValue());
         }
-        if (dest.startsWith(TEMP_TOPIC_PREFIX)) {
-            return new ActiveMQTempTopic(dest.substring(TEMP_TOPIC_PREFIX.length()));
-        }
-        if (dest.startsWith(QUEUE_PREFIX)) {
-            return session.createQueue(dest.substring(QUEUE_PREFIX.length()));
-        }
-        return session.createQueue(dest);
+        throw new JMSException("Invalid destination: expected queueName or topicName");
     }
 
     /**
@@ -379,8 +358,10 @@ public final class Client {
         }
 
         Object replyTo = bMsg.get(REPLY_TO);
-        if (replyTo instanceof BString bReplyTo) {
-            jmsMsg.setJMSReplyTo(toJmsDestination(session, bReplyTo.getValue()));
+        if (replyTo instanceof BMap<?, ?> rawReplyTo) {
+            @SuppressWarnings("unchecked")
+            BMap<BString, Object> bReplyTo = (BMap<BString, Object>) rawReplyTo;
+            jmsMsg.setJMSReplyTo(toJmsDestination(session, bReplyTo));
         }
 
         Object type = bMsg.get(TYPE_FIELD);
@@ -403,8 +384,9 @@ public final class Client {
                     jmsMsg.setDoubleProperty(propName, d);
                 } else if (val instanceof Boolean b) {
                     jmsMsg.setBooleanProperty(propName, b);
-                } else if (val != null) {
-                    jmsMsg.setStringProperty(propName, val.toString());
+                } else if (val instanceof Integer i) {
+                    // Ballerina `byte` is boxed as Integer here, not Byte.
+                    jmsMsg.setByteProperty(propName, i.byteValue());
                 }
             }
         }

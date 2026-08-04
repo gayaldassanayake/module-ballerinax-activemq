@@ -28,9 +28,9 @@ function drainQueue(string queueName) returns error? {
     Client drainer = check new (brokerUrl, username = username, password = password);
     error? drainError = ();
     do {
-        Message? msg = check drainer->receiveMessage(queueName, 1000);
+        Message? msg = check drainer->receiveMessage({queueName: queueName}, 1000);
         while msg is Message {
-            msg = check drainer->receiveMessage(queueName, 500);
+            msg = check drainer->receiveMessage({queueName: queueName}, 500);
         }
     } on fail error e {
         drainError = e;
@@ -58,7 +58,7 @@ function testItConnectionWrongHost() {
     Client|Error result = new Client("tcp://localhost:19999");
     if result is Client {
         // Lazy connection: the error surfaces on first use rather than at init time.
-        Error? sendErr = result->send("it.conn.discard.queue",
+        Error? sendErr = result->send({queueName: "it.conn.discard.queue"},
             {messageId: "dead-wrong-host", payload: "x".toBytes()});
         do { check result->close(); } on fail { }
         test:assertTrue(sendErr is Error,
