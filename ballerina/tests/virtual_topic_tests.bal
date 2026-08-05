@@ -73,11 +73,11 @@ function testVirtualTopicFanOut() returns error? {
     // Both consumer queues must exist before the publisher sends.
     runtime:sleep(3);
 
-    Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->send({topicName: "VirtualTopic.it.vt.fanout"}, {
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
         messageId: "vt-fanout-01",
         payload: "VirtualTopic fan-out message".toBytes()
-    });
+    }, {topicName: "VirtualTopic.it.vt.fanout"});
     check prod->close();
 
     runtime:sleep(5);
@@ -133,13 +133,13 @@ function testVirtualTopicLoadBalancing() returns error? {
 
     runtime:sleep(3);
 
-    Client prod = check new (brokerUrl, username = username, password = password);
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
     int messageCount = 4;
     foreach int i in 1 ... messageCount {
-        check prod->send({topicName: "VirtualTopic.it.vt.lb"}, {
+        check prod->send({
             messageId: string `vt-lb-${i}`,
             payload: string `lb-message-${i}`.toBytes()
-        });
+        }, {topicName: "VirtualTopic.it.vt.lb"});
     }
     check prod->close();
 

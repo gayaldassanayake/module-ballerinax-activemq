@@ -60,43 +60,56 @@ version = "0.1.0"
 import ballerinax/activemq;
 
 public function main() returns error? {
-    activemq:Client mqClient = check new ("tcp://localhost:61616",
+    activemq:MessageProducer producer = check new ("tcp://localhost:61616",
         username = "admin",
         password = "admin"
     );
 
-    check mqClient->send({queueName: "orders.queue"}, {
+    check producer->send({
         payload: "{'item':'book','qty':2}".toBytes(),
         properties: {"region": "APAC"}
-    });
+    }, {queueName: "orders.queue"});
 
-    check mqClient->close();
+    check producer->close();
 }
 ```
 
 `messageId` is optional — the JMS provider assigns the real one on send, and it's populated on
 any message you receive back. Set it yourself only if you have a specific reason to; use
-`correlationId` instead for application-level correlation (e.g. request-reply matching).
+`correlationId` instead for application-level correlation.
+
+A producer can also be configured with a default `destination`, letting you omit it on every
+`send()` call unless you need to override it for a specific message:
+
+```ballerina
+activemq:MessageProducer producer = check new ("tcp://localhost:61616",
+    destination = {queueName: "orders.queue"}
+);
+check producer->send({payload: "{'item':'book','qty':2}".toBytes()});
+```
 
 ### 4. Receive a message from a queue
+
+A `MessageConsumer` is bound to a single queue or topic for its whole lifetime:
 
 ```ballerina
 import ballerinax/activemq;
 import ballerina/io;
 
 public function main() returns error? {
-    activemq:Client mqClient = check new ("tcp://localhost:61616",
+    activemq:MessageConsumer consumer = check new ("tcp://localhost:61616",
         username = "admin",
-        password = "admin"
+        password = "admin",
+        destination = {queueName: "orders.queue"}
     );
 
-    activemq:Message? msg = check mqClient->receiveMessage({queueName: "orders.queue"}, 5000);
+    activemq:Message? msg = check consumer->receive(5000);
     if msg is activemq:Message {
         string text = check string:fromBytes(msg.payload);
         io:println("Received: ", text);
     }
 
-    check mqClient->close();
+    check consumer->close();
 }
 ```
 
@@ -134,50 +147,35 @@ Use `topicName` instead of `queueName` to subscribe to a JMS topic.
 Use a `Topic` destination when calling `send`:
 
 ```ballerina
-check mqClient->send({topicName: "order.events"}, {
+check producer->send({
     messageId: "evt-001",
     payload: "order placed".toBytes()
-});
+}, {topicName: "order.events"});
 ```
 
 ### 7. Transactional sends
 
-Group multiple sends into a single atomic operation:
+Configure the producer with `transacted: true`, then group multiple sends into a single
+atomic operation:
 
 ```ballerina
-activemq:Transaction tx = check mqClient->'transaction();
-check tx->send({queueName: "orders.queue"}, {messageId: "tx-1", payload: "order A".toBytes()});
-check tx->send({queueName: "audit.queue"},  {messageId: "tx-2", payload: "audit A".toBytes()});
-check tx->'commit();   // both messages are delivered together
-check tx->close();
+activemq:MessageProducer producer = check new ("tcp://localhost:61616", transacted = true);
+check producer->send({messageId: "tx-1", payload: "order A".toBytes()}, {queueName: "orders.queue"});
+check producer->send({messageId: "tx-2", payload: "audit A".toBytes()}, {queueName: "audit.queue"});
+check producer->'commit();   // both messages are delivered together
+check producer->close();
 ```
 
 Call `'rollback()` (or simply `close()` without committing) to discard all buffered
-messages.
+messages. `'commit()`/`'rollback()` return an `activemq:Error` if the producer wasn't
+configured with `transacted: true`.
 
-### 8. Request-reply pattern
-
-`sendRequest` creates a temporary reply queue, attaches it to the message as `replyTo`,
-and blocks until the responder sends a reply:
-
-```ballerina
-activemq:Message? reply = check mqClient->sendRequest({queueName: "pricing.service.queue"}, {
-    messageId:     "req-001",
-    correlationId: "corr-abc",
-    payload:       "{'sku':'B007'}".toBytes()
-}, 8000);
-
-if reply is activemq:Message {
-    io:println("Price: ", check string:fromBytes(reply.payload));
-}
-```
-
-### 9. SSL / TLS connection
+### 8. SSL / TLS connection
 
 Pass a `secureSocket` block to connect over `ssl://`:
 
 ```ballerina
-activemq:Client mqClient = check new ("ssl://localhost:61617",
+activemq:MessageProducer producer = check new ("ssl://localhost:61617",
     secureSocket = {
         cert: "/path/to/broker.pem",                 // broker's CA certificate
         key: {
@@ -191,15 +189,18 @@ activemq:Client mqClient = check new ("ssl://localhost:61617",
 Alternatively, use `crypto:TrustStore` / `crypto:KeyStore` (`.jks` / `.p12` files)
 instead of PEM paths.
 
-### 10. Message selector
+### 9. Message selector
 
-Receive only messages whose properties match a JMS selector expression:
+Configure a consumer to receive only messages whose properties match a JMS selector
+expression:
 
 ```ballerina
 // Only receive messages where the "region" property equals "APAC"
-activemq:Message? msg = check mqClient->receiveMessage(
-    {queueName: "orders.queue"}, 5000, "region = 'APAC'"
+activemq:MessageConsumer consumer = check new ("tcp://localhost:61616",
+    destination = {queueName: "orders.queue"},
+    messageSelector = "region = 'APAC'"
 );
+activemq:Message? msg = check consumer->receive(5000);
 ```
 
 The same `messageSelector` field is available in `@ServiceConfig` for listener services.

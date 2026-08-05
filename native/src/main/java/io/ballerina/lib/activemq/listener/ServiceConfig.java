@@ -18,6 +18,8 @@
 
 package io.ballerina.lib.activemq.listener;
 
+import io.ballerina.lib.activemq.util.RedeliveryPolicyConfig;
+
 /**
  * Represents the service-level configuration for an ActiveMQ service.
  *

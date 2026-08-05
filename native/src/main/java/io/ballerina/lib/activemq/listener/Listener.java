@@ -18,6 +18,9 @@
 
 package io.ballerina.lib.activemq.listener;
 
+import io.ballerina.lib.activemq.util.ConnectionConfig;
+import io.ballerina.lib.activemq.util.PrefetchPolicyConfig;
+import io.ballerina.lib.activemq.util.RedeliveryPolicyConfig;
 import io.ballerina.runtime.api.Environment;
 import io.ballerina.runtime.api.values.BError;
 import io.ballerina.runtime.api.values.BMap;

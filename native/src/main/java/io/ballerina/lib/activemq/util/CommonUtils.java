@@ -85,13 +85,15 @@ public class CommonUtils {
      *
      * @param ackMode  the Ballerina acknowledgement mode string
      * @return the JMS session acknowledgement mode constant
+     * @throws jakarta.jms.JMSException if {@code ackMode} is not a recognized acknowledgement mode
      */
-    public static int getAcknowledgementMode(String ackMode) {
+    public static int getAcknowledgementMode(String ackMode) throws jakarta.jms.JMSException {
         return switch (ackMode) {
             case ActiveMQConstants.SESSION_TRANSACTED_MODE -> jakarta.jms.Session.SESSION_TRANSACTED;
             case ActiveMQConstants.AUTO_ACKNOWLEDGE_MODE -> jakarta.jms.Session.AUTO_ACKNOWLEDGE;
             case ActiveMQConstants.CLIENT_ACKNOWLEDGE_MODE -> jakarta.jms.Session.CLIENT_ACKNOWLEDGE;
-            case null, default -> jakarta.jms.Session.DUPS_OK_ACKNOWLEDGE;
+            case ActiveMQConstants.DUPS_OK_ACKNOWLEDGE_MODE -> jakarta.jms.Session.DUPS_OK_ACKNOWLEDGE;
+            default -> throw new jakarta.jms.JMSException("Unrecognized acknowledgement mode: " + ackMode);
         };
     }
 }

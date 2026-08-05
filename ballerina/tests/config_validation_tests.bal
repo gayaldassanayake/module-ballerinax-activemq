@@ -20,12 +20,12 @@ import ballerina/test;
     groups: ["validations"]
 }
 isolated function testSendRejectsInvalidPriority() returns error? {
-    Client mqClient = check new (BROKER_URL);
-    Error? result = mqClient->send({queueName: "validation.priority.queue"}, {
+    MessageProducer producer = check new (BROKER_URL);
+    Error? result = producer->send({
         payload: "invalid priority".toBytes(),
         priority: 15
-    });
-    check mqClient->close();
+    }, {queueName: "validation.priority.queue"});
+    check producer->close();
     test:assertTrue(result is Error, "priority outside 0-9 should be rejected");
     if result is Error {
         test:assertEquals(result.message(), "priority must be between 0 and 9");
@@ -36,7 +36,7 @@ isolated function testSendRejectsInvalidPriority() returns error? {
     groups: ["validations"]
 }
 isolated function testInitRejectsInvalidCollisionAvoidancePercent() returns error? {
-    Client|Error result = new (BROKER_URL, redeliveryPolicy = {collisionAvoidancePercent: 150});
+    MessageProducer|Error result = new (BROKER_URL, redeliveryPolicy = {collisionAvoidancePercent: 150});
     test:assertTrue(result is Error, "collisionAvoidancePercent outside 0-100 should be rejected");
     if result is Error {
         test:assertEquals(result.message(), "collisionAvoidancePercent must be between 0 and 100");
@@ -47,7 +47,7 @@ isolated function testInitRejectsInvalidCollisionAvoidancePercent() returns erro
     groups: ["validations"]
 }
 isolated function testInitRejectsNegativePrefetchSize() returns error? {
-    Client|Error result = new (BROKER_URL, prefetchPolicy = {queuePrefetchSize: -5});
+    MessageProducer|Error result = new (BROKER_URL, prefetchPolicy = {queuePrefetchSize: -5});
     test:assertTrue(result is Error, "a negative prefetch size should be rejected");
     if result is Error {
         test:assertEquals(result.message(), "queuePrefetchSize cannot be negative");
@@ -58,7 +58,7 @@ isolated function testInitRejectsNegativePrefetchSize() returns error? {
     groups: ["validations"]
 }
 isolated function testInitRejectsInvalidBackOffMultiplier() returns error? {
-    Client|Error result = new (BROKER_URL, redeliveryPolicy = {backOffMultiplier: 0.0});
+    MessageProducer|Error result = new (BROKER_URL, redeliveryPolicy = {backOffMultiplier: 0.0});
     test:assertTrue(result is Error, "a zero backOffMultiplier should be rejected");
     if result is Error {
         test:assertEquals(result.message(), "backOffMultiplier must be greater than 0");

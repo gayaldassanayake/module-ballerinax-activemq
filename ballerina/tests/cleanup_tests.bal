@@ -19,15 +19,15 @@ import ballerina/test;
 
 isolated int itCleanupListenerCount = 0;
 
-// TC-CLEANUP-01: Client close is idempotent — double-close must not panic
+// TC-CLEANUP-01: Producer close is idempotent — double-close must not panic
 @test:Config {
     groups: ["integration", "cleanup"]
 }
-function testItClientCloseIdempotent() returns error? {
-    Client mqClient = check new (brokerUrl, username = username, password = password);
-    check mqClient->close();
+function testItProducerCloseIdempotent() returns error? {
+    MessageProducer producer = check new (brokerUrl, username = username, password = password);
+    check producer->close();
     // Second close: () or Error are both acceptable; what matters is no panic.
-    do { check mqClient->close(); } on fail { }
+    do { check producer->close(); } on fail { }
 }
 
 // TC-CLEANUP-02: Listener close is idempotent — double-stop must not panic
@@ -51,23 +51,24 @@ function testItNoMessageLossHappyPath() returns error? {
         itCleanupListenerCount = 0;
     }
 
-    Client prod = check new (brokerUrl, username = username, password = password);
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
     int messageCount = 10;
     foreach int i in 1 ... messageCount {
-        check prod->send({queueName: "it.cleanup.nomsg.queue"}, {
+        check prod->send({
             messageId: string `it-cleanup-${i}`,
             payload: string `message-${i}`.toBytes()
-        });
+        }, {queueName: "it.cleanup.nomsg.queue"});
     }
     check prod->close();
 
     // Receive all 10 messages synchronously to verify no loss and no duplication.
-    Client cons = check new (brokerUrl, username = username, password = password);
+    MessageConsumer cons = check new (brokerUrl,
+        username = username, password = password, destination = {queueName: "it.cleanup.nomsg.queue"});
     int received = 0;
-    Message? msg = check cons->receiveMessage({queueName: "it.cleanup.nomsg.queue"}, 5000);
+    Message? msg = check cons->receive(5000);
     while msg is Message {
         received += 1;
-        msg = check cons->receiveMessage({queueName: "it.cleanup.nomsg.queue"}, 2000);
+        msg = check cons->receive(2000);
     }
     check cons->close();
 
@@ -99,11 +100,11 @@ function testItListenerServiceCleanup() returns error? {
     check cleanupListener.attach(cleanupSvc, "it-cleanup-svc");
     check cleanupListener.'start();
 
-    Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->send({queueName: "it.cleanup.listener.queue"}, {
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
         messageId: "it-cleanup-svc-01",
         payload: "cleanup test".toBytes()
-    });
+    }, {queueName: "it.cleanup.listener.queue"});
     check prod->close();
 
     runtime:sleep(4);

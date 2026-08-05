@@ -47,11 +47,11 @@ function testItListenerReceivesTextMessage() returns error? {
     };
     check itListener.attach(listenerTextSvc, "it-listener-text-svc");
 
-    Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->send({queueName: "it.listener.text.queue"}, {
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
         messageId: "it-listener-text-01",
         payload: "Listener integration test".toBytes()
-    });
+    }, {queueName: "it.listener.text.queue"});
     check prod->close();
 
     runtime:sleep(5);
@@ -87,12 +87,12 @@ function testItListenerReceivesMultipleMessages() returns error? {
     };
     check itListener.attach(listenerOrderSvc, "it-listener-order-svc");
 
-    Client prod = check new (brokerUrl, username = username, password = password);
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
     foreach int i in 1 ... 5 {
-        check prod->send({queueName: "it.listener.order.queue"}, {
+        check prod->send({
             messageId: string `order-${i}`,
             payload: string `msg-${i}`.toBytes()
-        });
+        }, {queueName: "it.listener.order.queue"});
     }
     check prod->close();
 
@@ -153,11 +153,11 @@ function testItListenerGracefulStop() returns error? {
     check stopListener.attach(stopSvc, "it-stop-svc");
     check stopListener.'start();
 
-    Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->send({queueName: "it.listener.stop.queue"}, {
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
         messageId: "it-stop-pre-01",
         payload: "before-stop".toBytes()
-    });
+    }, {queueName: "it.listener.stop.queue"});
     runtime:sleep(4);
 
     int countBeforeStop = 0;
@@ -167,10 +167,10 @@ function testItListenerGracefulStop() returns error? {
 
     check stopListener.gracefulStop();
 
-    check prod->send({queueName: "it.listener.stop.queue"}, {
+    check prod->send({
         messageId: "it-stop-post-01",
         payload: "after-stop".toBytes()
-    });
+    }, {queueName: "it.listener.stop.queue"});
     check prod->close();
     runtime:sleep(3);
 

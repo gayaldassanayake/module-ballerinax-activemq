@@ -22,13 +22,17 @@ import ballerina/test;
 }
 function testItReceiveTextMessageFromQueue() returns error? {
     check drainQueue("it.cons.text.queue");
-    Client mqClient = check new (brokerUrl, username = username, password = password);
-    check mqClient->send({queueName: "it.cons.text.queue"}, {
+    MessageProducer producer = check new (brokerUrl, username = username, password = password);
+    check producer->send({
         messageId: "it-cons-text-01",
         payload: "Hello Consumer".toBytes()
-    });
-    Message? received = check mqClient->receiveMessage({queueName: "it.cons.text.queue"}, 5000);
-    check mqClient->close();
+    }, {queueName: "it.cons.text.queue"});
+    check producer->close();
+
+    MessageConsumer consumer = check new (brokerUrl,
+        username = username, password = password, destination = {queueName: "it.cons.text.queue"});
+    Message? received = check consumer->receive(5000);
+    check consumer->close();
     test:assertTrue(received is Message, "should receive the sent TextMessage");
     if received is Message {
         string content = check string:fromBytes(received.payload);
@@ -42,14 +46,18 @@ function testItReceiveTextMessageFromQueue() returns error? {
 }
 function testItReceiveBytesMessageFromQueue() returns error? {
     check drainQueue("it.cons.bytes.queue");
-    Client mqClient = check new (brokerUrl, username = username, password = password);
+    MessageProducer producer = check new (brokerUrl, username = username, password = password);
     byte[] original = [0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01];
-    check mqClient->send({queueName: "it.cons.bytes.queue"}, {
+    check producer->send({
         messageId: "it-cons-bytes-01",
         payload: original
-    });
-    Message? received = check mqClient->receiveMessage({queueName: "it.cons.bytes.queue"}, 5000);
-    check mqClient->close();
+    }, {queueName: "it.cons.bytes.queue"});
+    check producer->close();
+
+    MessageConsumer consumer = check new (brokerUrl,
+        username = username, password = password, destination = {queueName: "it.cons.bytes.queue"});
+    Message? received = check consumer->receive(5000);
+    check consumer->close();
     test:assertTrue(received is Message, "should receive the sent BytesMessage");
     if received is Message {
         test:assertEquals(received.payload, original,
@@ -63,14 +71,18 @@ function testItReceiveBytesMessageFromQueue() returns error? {
 }
 function testItReceiveMapMessageFromQueue() returns error? {
     check drainQueue("it.cons.map.queue");
-    Client mqClient = check new (brokerUrl, username = username, password = password);
-    check mqClient->send({queueName: "it.cons.map.queue"}, {
+    MessageProducer producer = check new (brokerUrl, username = username, password = password);
+    check producer->send({
         messageId: "it-cons-map-01",
         payload: "{}".toBytes(),
         properties: {"environment": "test", "version": "2"}
-    });
-    Message? received = check mqClient->receiveMessage({queueName: "it.cons.map.queue"}, 5000);
-    check mqClient->close();
+    }, {queueName: "it.cons.map.queue"});
+    check producer->close();
+
+    MessageConsumer consumer = check new (brokerUrl,
+        username = username, password = password, destination = {queueName: "it.cons.map.queue"});
+    Message? received = check consumer->receive(5000);
+    check consumer->close();
     test:assertTrue(received is Message, "should receive the message with properties");
     if received is Message {
         map<Property>? props = received.properties;
@@ -87,9 +99,10 @@ function testItReceiveMapMessageFromQueue() returns error? {
     groups: ["integration", "queue-consumer"]
 }
 function testItReceiveTimeoutEmptyQueue() returns error? {
-    Client mqClient = check new (brokerUrl, username = username, password = password);
-    Message? received = check mqClient->receiveMessage({queueName: "it.cons.empty.queue"}, 1000);
-    check mqClient->close();
+    MessageConsumer consumer = check new (brokerUrl,
+        username = username, password = password, destination = {queueName: "it.cons.empty.queue"});
+    Message? received = check consumer->receive(1000);
+    check consumer->close();
     test:assertTrue(received is (),
         "should return () — not an error — when no message arrives within the timeout");
 }

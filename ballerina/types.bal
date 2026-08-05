@@ -61,6 +61,33 @@ public type ConnectionConfiguration record {
     map<string> properties = {};
 };
 
+# Configuration for an ActiveMQ message producer.
+#
+# + transacted - Enables transacted messaging. Messages are sent within a transaction context,
+#                requiring an explicit commit or rollback
+# + destination - The default destination (queue or topic) to publish to. Can be omitted and/or
+#                 overridden per call via the `destination` parameter of `MessageProducer.send()`
+public type ProducerConfiguration record {|
+    *ConnectionConfiguration;
+    boolean transacted = false;
+    Destination destination?;
+|};
+
+# Configuration for an ActiveMQ message consumer.
+#
+# + ackMode - Specifies how messages received by the session will be acknowledged
+# + destination - The queue or topic to consume messages from, fixed for this consumer's lifetime
+# + messageSelector - JMS message selector expression to filter messages. Only messages with
+#                      properties matching the selector are delivered. For example, to receive only
+#                      messages with property `priority` set to `'high'`, use: `"priority = 'high'"`.
+#                      If not set, all messages from the destination will be delivered.
+public type ConsumerConfiguration record {|
+    *ConnectionConfiguration;
+    AcknowledgementMode ackMode = AUTO_ACKNOWLEDGE;
+    Destination destination;
+    string messageSelector?;
+|};
+
 # Configurations for message prefetching behavior. Prefetching allows the broker to send messages
 # to the consumer before they are explicitly requested, improving throughput by reducing network
 # round trips.

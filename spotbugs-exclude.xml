@@ -36,17 +36,17 @@
 
     <!-- ConnectionConfig is a record - expose internal representation is by design -->
     <Match>
-        <Class name="io.ballerina.lib.activemq.listener.ConnectionConfig"/>
+        <Class name="io.ballerina.lib.activemq.util.ConnectionConfig"/>
         <Method name="properties"/>
         <Bug pattern="EI_EXPOSE_REP"/>
     </Match>
     <Match>
-        <Class name="io.ballerina.lib.activemq.listener.ConnectionConfig"/>
+        <Class name="io.ballerina.lib.activemq.util.ConnectionConfig"/>
         <Method name="secureSocket"/>
         <Bug pattern="EI_EXPOSE_REP"/>
     </Match>
     <Match>
-        <Class name="io.ballerina.lib.activemq.listener.ConnectionConfig"/>
+        <Class name="io.ballerina.lib.activemq.util.ConnectionConfig"/>
         <Method name="&lt;init&gt;"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>

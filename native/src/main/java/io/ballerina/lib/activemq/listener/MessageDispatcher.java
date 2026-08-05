@@ -18,6 +18,7 @@
 
 package io.ballerina.lib.activemq.listener;
 
+import io.ballerina.lib.activemq.util.MessageMapper;
 import io.ballerina.runtime.api.Runtime;
 import io.ballerina.runtime.api.concurrent.StrandMetadata;
 import io.ballerina.runtime.api.creators.ValueCreator;

@@ -48,11 +48,11 @@ function testItAckAutoAcknowledge() returns error? {
     check ackAutoListener.attach(autoSvc, "it-ack-auto-svc");
     check ackAutoListener.'start();
 
-    Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->send({queueName: "it.ack.auto.queue"}, {
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
         messageId: "it-ack-auto-01",
         payload: "auto-ack message".toBytes()
-    });
+    }, {queueName: "it.ack.auto.queue"});
     check prod->close();
 
     runtime:sleep(5);
@@ -90,11 +90,11 @@ function testItAckClientAcknowledgeExplicit() returns error? {
     check ackClientListener.attach(clientAckSvc, "it-ack-client-svc");
     check ackClientListener.'start();
 
-    Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->send({queueName: "it.ack.client.queue"}, {
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
         messageId: "it-ack-client-01",
         payload: "client-ack message".toBytes()
-    });
+    }, {queueName: "it.ack.client.queue"});
     check prod->close();
 
     runtime:sleep(5);
@@ -118,11 +118,11 @@ function testItAckClientAcknowledgeRecover() returns error? {
     lock { itAckRecoverSecondCount = 0; }
 
     // Send test message
-    Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->send({queueName: "it.ack.recover.queue"}, {
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
         messageId: "it-ack-recover-01",
         payload: "recover test".toBytes()
-    });
+    }, {queueName: "it.ack.recover.queue"});
     check prod->close();
 
     // Listener 1: receives but deliberately does NOT acknowledge
@@ -207,11 +207,11 @@ function testItAckDupsOkAcknowledge() returns error? {
     check dupsOkListener.attach(dupsOkSvc, "it-ack-dups-svc");
     check dupsOkListener.'start();
 
-    Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->send({queueName: "it.ack.dups.queue"}, {
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
         messageId: "it-ack-dups-01",
         payload: "dups-ok message".toBytes()
-    });
+    }, {queueName: "it.ack.dups.queue"});
     check prod->close();
 
     runtime:sleep(5);

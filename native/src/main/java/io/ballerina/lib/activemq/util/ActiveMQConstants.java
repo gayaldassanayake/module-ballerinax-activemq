@@ -38,6 +38,10 @@ public interface ActiveMQConstants {
     BString REDELIVERY_POLICY = StringUtils.fromString("redeliveryPolicy");
     BString PROPERTIES = StringUtils.fromString("properties");
 
+    // Producer/consumer config field names
+    BString TRANSACTED = StringUtils.fromString("transacted");
+    BString ACK_MODE = StringUtils.fromString("ackMode");
+
     // Prefetch policy field names
     BString QUEUE_PREFETCH = StringUtils.fromString("queuePrefetch");
     BString TOPIC_PREFETCH = StringUtils.fromString("topicPrefetch");
@@ -69,7 +73,6 @@ public interface ActiveMQConstants {
     // Ballerina record/class names
     String BMESSAGE_NAME = "Message";
     String BCALLER_NAME = "Caller";
-    String BTRANSACTION_NAME = "Transaction";
 
     // Service config field names
     BString MESSAGE_SELECTOR = StringUtils.fromString("messageSelector");
@@ -119,6 +122,7 @@ public interface ActiveMQConstants {
     String AUTO_ACKNOWLEDGE_MODE = "AUTO_ACKNOWLEDGE";
     String CLIENT_ACKNOWLEDGE_MODE = "CLIENT_ACKNOWLEDGE";
     String SESSION_TRANSACTED_MODE = "SESSION_TRANSACTED";
+    String DUPS_OK_ACKNOWLEDGE_MODE = "DUPS_OK_ACKNOWLEDGE";
 
     // Remote method names
     String ON_MESSAGE_METHOD = "onMessage";

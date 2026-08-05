@@ -16,7 +16,7 @@
  * under the License.
  */
 
-package io.ballerina.lib.activemq.listener;
+package io.ballerina.lib.activemq.util;
 
 import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
@@ -24,12 +24,16 @@ import io.ballerina.runtime.api.types.MapType;
 import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.types.UnionType;
 import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
 import jakarta.jms.BytesMessage;
+import jakarta.jms.DeliveryMode;
+import jakarta.jms.Destination;
 import jakarta.jms.JMSException;
 import jakarta.jms.Message;
 import jakarta.jms.Queue;
+import jakarta.jms.Session;
 import jakarta.jms.TemporaryQueue;
 import jakarta.jms.TemporaryTopic;
 import jakarta.jms.TextMessage;
@@ -39,6 +43,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
 import java.util.logging.Logger;
 
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.AMQ_SCHEDULED_CRON;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.AMQ_SCHEDULED_DELAY;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.AMQ_SCHEDULED_PERIOD;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.AMQ_SCHEDULED_REPEAT;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.BMESSAGE_NAME;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.CORRELATION_ID;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.DELIVERY_TIME_FIELD;
@@ -51,14 +59,20 @@ import static io.ballerina.lib.activemq.util.ActiveMQConstants.MESSAGE_PROPERTIE
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.MESSAGE_USERID;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.PERSISTENT_FIELD;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.PRIORITY_FIELD;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.QUEUE_NAME;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.REDELIVERED_FIELD;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.REPLY_TO;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.SCHEDULED_CRON;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.SCHEDULED_DELAY;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.SCHEDULED_PERIOD;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.SCHEDULED_REPEAT;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.TIMESTAMP_FIELD;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.TOPIC_NAME;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.TYPE_FIELD;
 import static io.ballerina.lib.activemq.util.ModuleUtils.getModule;
 
 /**
- * MessageMapper maps JMS messages to Ballerina message records.
+ * MessageMapper converts between JMS messages and Ballerina message records, in both directions.
  *
  * @since 0.1.0
  */
@@ -68,7 +82,7 @@ public class MessageMapper {
     static final BString TEXT = StringUtils.fromString("text");
     static final BString BINARY = StringUtils.fromString("binary");
     static final BString UNKNOWN = StringUtils.fromString("unknown");
-    static final String NATIVE_MESSAGE = "native.message";
+    public static final String NATIVE_MESSAGE = "native.message";
 
     private static final UnionType PROPERTY_TYPE = TypeCreator.createUnionType(
             PredefinedTypes.TYPE_BOOLEAN, PredefinedTypes.TYPE_INT, PredefinedTypes.TYPE_BYTE,
@@ -187,7 +201,7 @@ public class MessageMapper {
     }
 
     /** Converts a JMS destination to the public Ballerina Destination record. */
-    static BMap<BString, Object> toBallerinaDestination(jakarta.jms.Destination destination) throws JMSException {
+    static BMap<BString, Object> toBallerinaDestination(Destination destination) throws JMSException {
         if (destination instanceof TemporaryQueue queue) {
             return createQueue(queue.getQueueName());
         }
@@ -213,5 +227,120 @@ public class MessageMapper {
         BMap<BString, Object> topic = ValueCreator.createRecordValue(getModule(), "Topic");
         topic.put(StringUtils.fromString("topicName"), StringUtils.fromString(name));
         return topic;
+    }
+
+    /** Creates a JMS Destination from the public Ballerina Destination record. */
+    public static Destination toJmsDestination(Session session, BMap<BString, Object> destination)
+            throws JMSException {
+        Object topicName = destination.get(TOPIC_NAME);
+        if (topicName instanceof BString topic) {
+            return session.createTopic(topic.getValue());
+        }
+        Object queueName = destination.get(QUEUE_NAME);
+        if (queueName instanceof BString queue) {
+            return session.createQueue(queue.getValue());
+        }
+        throw new JMSException("Invalid destination: expected queueName or topicName");
+    }
+
+    /**
+     * Converts a Ballerina Message record to a JMS BytesMessage, mapping all relevant headers,
+     * custom properties, and ActiveMQ scheduler properties when present.
+     */
+    @SuppressWarnings("unchecked")
+    public static Message toJmsMessage(Session session, BMap<BString, Object> bMsg) throws JMSException {
+        BArray payload = (BArray) bMsg.get(MESSAGE_PAYLOAD);
+        BytesMessage jmsMsg = session.createBytesMessage();
+        jmsMsg.writeBytes(payload.getBytes());
+
+        Object corrId = bMsg.get(CORRELATION_ID);
+        if (corrId instanceof BString bCorrId) {
+            jmsMsg.setJMSCorrelationID(bCorrId.getValue());
+        }
+
+        Object replyTo = bMsg.get(REPLY_TO);
+        if (replyTo instanceof BMap<?, ?> rawReplyTo) {
+            BMap<BString, Object> bReplyTo = (BMap<BString, Object>) rawReplyTo;
+            jmsMsg.setJMSReplyTo(toJmsDestination(session, bReplyTo));
+        }
+
+        Object type = bMsg.get(TYPE_FIELD);
+        if (type instanceof BString bType) {
+            jmsMsg.setJMSType(bType.getValue());
+        }
+
+        Object propsObj = bMsg.get(MESSAGE_PROPERTIES);
+        if (propsObj instanceof BMap<?, ?> rawProps) {
+            BMap<BString, Object> props = (BMap<BString, Object>) rawProps;
+            for (BString key : props.getKeys()) {
+                Object val = props.get(key);
+                String propName = key.getValue();
+                if (val instanceof BString bStr) {
+                    jmsMsg.setStringProperty(propName, bStr.getValue());
+                } else if (val instanceof Long l) {
+                    jmsMsg.setLongProperty(propName, l);
+                } else if (val instanceof Double d) {
+                    jmsMsg.setDoubleProperty(propName, d);
+                } else if (val instanceof Boolean b) {
+                    jmsMsg.setBooleanProperty(propName, b);
+                } else if (val instanceof Integer i) {
+                    // Ballerina `byte` is boxed as Integer here, not Byte.
+                    jmsMsg.setByteProperty(propName, i.byteValue());
+                }
+            }
+        }
+
+        // Scheduled delivery — ActiveMQ Classic scheduler properties.
+        // These take effect only when schedulerSupport="true" is set in the broker.
+        Object scheduledDelay = bMsg.get(SCHEDULED_DELAY);
+        if (scheduledDelay instanceof Long l) {
+            jmsMsg.setLongProperty(AMQ_SCHEDULED_DELAY, l);
+        }
+        Object scheduledPeriod = bMsg.get(SCHEDULED_PERIOD);
+        if (scheduledPeriod instanceof Long l) {
+            jmsMsg.setLongProperty(AMQ_SCHEDULED_PERIOD, l);
+        }
+        Object scheduledRepeat = bMsg.get(SCHEDULED_REPEAT);
+        if (scheduledRepeat instanceof Long l) {
+            jmsMsg.setIntProperty(AMQ_SCHEDULED_REPEAT, l.intValue());
+        }
+        Object scheduledCron = bMsg.get(SCHEDULED_CRON);
+        if (scheduledCron instanceof BString bs) {
+            jmsMsg.setStringProperty(AMQ_SCHEDULED_CRON, bs.getValue());
+        }
+
+        return jmsMsg;
+    }
+
+    public static int getDeliveryMode(BMap<BString, Object> bMsg) {
+        Object persistent = bMsg.get(PERSISTENT_FIELD);
+        if (persistent instanceof Boolean b) {
+            return b ? DeliveryMode.PERSISTENT : DeliveryMode.NON_PERSISTENT;
+        }
+        return Message.DEFAULT_DELIVERY_MODE;
+    }
+
+    public static int getPriority(BMap<BString, Object> bMsg) {
+        if (bMsg.containsKey(PRIORITY_FIELD)) {
+            Object priority = bMsg.get(PRIORITY_FIELD);
+            if (priority instanceof Long l) {
+                return l.intValue();
+            }
+        }
+        return Message.DEFAULT_PRIORITY;
+    }
+
+    public static long getTTL(BMap<BString, Object> bMsg) {
+        if (bMsg.containsKey(EXPIRY_FIELD)) {
+            Object expiry = bMsg.get(EXPIRY_FIELD);
+            if (expiry instanceof Long l) {
+                if (l == 0L) {
+                    return Message.DEFAULT_TIME_TO_LIVE; // 0 = never expires, per the documented contract
+                }
+                long ttl = l - System.currentTimeMillis();
+                return ttl <= 0 ? 1L : ttl; // a genuine past timestamp still expires ~immediately
+            }
+        }
+        return Message.DEFAULT_TIME_TO_LIVE;
     }
 }

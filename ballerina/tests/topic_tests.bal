@@ -44,11 +44,11 @@ function testItTopicPublishAndSubscribe() returns error? {
     // Topics require the subscriber to be registered before the publisher sends.
     runtime:sleep(3);
 
-    Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->send({topicName: "it.topic.single"}, {
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
         messageId: "it-topic-single-01",
         payload: "Topic publish test".toBytes()
-    });
+    }, {topicName: "it.topic.single"});
     check prod->close();
 
     runtime:sleep(5);
@@ -97,11 +97,11 @@ function testItTopicMultipleSubscribers() returns error? {
     // Both subscribers must be registered before publishing.
     runtime:sleep(4);
 
-    Client prod = check new (brokerUrl, username = username, password = password);
-    check prod->send({topicName: "it.topic.multi"}, {
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
         messageId: "it-topic-multi-01",
         payload: "Topic fan-out message".toBytes()
-    });
+    }, {topicName: "it.topic.multi"});
     check prod->close();
 
     runtime:sleep(5);

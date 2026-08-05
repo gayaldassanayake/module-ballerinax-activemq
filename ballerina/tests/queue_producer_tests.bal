@@ -21,11 +21,11 @@ import ballerina/test;
     groups: ["integration", "queue-producer"]
 }
 function testItSendTextMessageToTypedQueue() returns error? {
-    Client mqClient = check new (brokerUrl, username = username, password = password);
-    Error? result = mqClient->send({queueName: "it.prod.typed.queue"}, {
+    MessageProducer mqClient = check new (brokerUrl, username = username, password = password);
+    Error? result = mqClient->send({
         messageId: "it-prod-typed-01",
         payload: "Hello, typed queue!".toBytes()
-    });
+    }, {queueName: "it.prod.typed.queue"});
     check mqClient->close();
     test:assertTrue(result is (), "send should succeed for a typed queue destination");
 }
@@ -35,11 +35,11 @@ function testItSendTextMessageToTypedQueue() returns error? {
     groups: ["integration", "queue-producer"]
 }
 function testItSendTextMessageToQueue() returns error? {
-    Client mqClient = check new (brokerUrl, username = username, password = password);
-    Error? result = mqClient->send({queueName: "it.prod.text.queue"}, {
+    MessageProducer mqClient = check new (brokerUrl, username = username, password = password);
+    Error? result = mqClient->send({
         messageId: "it-prod-text-01",
         payload: "Hello, ActiveMQ 6.2.4!".toBytes()
-    });
+    }, {queueName: "it.prod.text.queue"});
     check mqClient->close();
     test:assertTrue(result is (), "send should succeed for a text payload");
 }
@@ -49,12 +49,12 @@ function testItSendTextMessageToQueue() returns error? {
     groups: ["integration", "queue-producer"]
 }
 function testItSendBytesMessageToQueue() returns error? {
-    Client mqClient = check new (brokerUrl, username = username, password = password);
+    MessageProducer mqClient = check new (brokerUrl, username = username, password = password);
     byte[] binaryPayload = [0x00, 0x01, 0x02, 0xFF, 0xFE, 0xAB, 0xCD];
-    Error? result = mqClient->send({queueName: "it.prod.bytes.queue"}, {
+    Error? result = mqClient->send({
         messageId: "it-prod-bytes-01",
         payload: binaryPayload
-    });
+    }, {queueName: "it.prod.bytes.queue"});
     check mqClient->close();
     test:assertTrue(result is (), "send should succeed for a binary payload");
 }
@@ -65,8 +65,8 @@ function testItSendBytesMessageToQueue() returns error? {
     groups: ["integration", "queue-producer"]
 }
 function testItSendMapMessageToQueue() returns error? {
-    Client mqClient = check new (brokerUrl, username = username, password = password);
-    Error? result = mqClient->send({queueName: "it.prod.map.queue"}, {
+    MessageProducer mqClient = check new (brokerUrl, username = username, password = password);
+    Error? result = mqClient->send({
         messageId: "it-prod-map-01",
         payload: "{}".toBytes(),
         properties: {
@@ -74,7 +74,7 @@ function testItSendMapMessageToQueue() returns error? {
             "priority": "high",
             "count": 42
         }
-    });
+    }, {queueName: "it.prod.map.queue"});
     check mqClient->close();
     test:assertTrue(result is (), "send with a properties map should succeed");
 }
