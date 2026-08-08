@@ -35,9 +35,7 @@ function testItAckAutoAcknowledge() returns error? {
     Listener ackAutoListener = check new (brokerUrl, username = username, password = password);
     Service autoSvc = @ServiceConfig {
         queueName: "it.ack.auto.queue",
-        sessionAckMode: AUTO_ACKNOWLEDGE,
-        pollingInterval: 1,
-        receiveTimeout: 2
+        sessionAckMode: AUTO_ACKNOWLEDGE
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {
@@ -76,9 +74,7 @@ function testItAckClientAcknowledgeExplicit() returns error? {
     Listener ackClientListener = check new (brokerUrl, username = username, password = password);
     Service clientAckSvc = @ServiceConfig {
         queueName: "it.ack.client.queue",
-        sessionAckMode: CLIENT_ACKNOWLEDGE,
-        pollingInterval: 1,
-        receiveTimeout: 2
+        sessionAckMode: CLIENT_ACKNOWLEDGE
     } service object {
         remote function onMessage(Message message, Caller caller) returns error? {
             lock {
@@ -129,9 +125,7 @@ function testItAckClientAcknowledgeRecover() returns error? {
     Listener listener1 = check new (brokerUrl, username = username, password = password);
     Service noAckSvc = @ServiceConfig {
         queueName: "it.ack.recover.queue",
-        sessionAckMode: CLIENT_ACKNOWLEDGE,
-        pollingInterval: 1,
-        receiveTimeout: 2
+        sessionAckMode: CLIENT_ACKNOWLEDGE
     } service object {
         remote function onMessage(Message message, Caller caller) returns error? {
             lock {
@@ -158,9 +152,7 @@ function testItAckClientAcknowledgeRecover() returns error? {
     Listener listener2 = check new (brokerUrl, username = username, password = password);
     Service redeliverSvc = @ServiceConfig {
         queueName: "it.ack.recover.queue",
-        sessionAckMode: CLIENT_ACKNOWLEDGE,
-        pollingInterval: 1,
-        receiveTimeout: 2
+        sessionAckMode: CLIENT_ACKNOWLEDGE
     } service object {
         remote function onMessage(Message message, Caller caller) returns error? {
             lock {
@@ -194,9 +186,7 @@ function testItAckDupsOkAcknowledge() returns error? {
     Listener dupsOkListener = check new (brokerUrl, username = username, password = password);
     Service dupsOkSvc = @ServiceConfig {
         queueName: "it.ack.dups.queue",
-        sessionAckMode: DUPS_OK_ACKNOWLEDGE,
-        pollingInterval: 1,
-        receiveTimeout: 2
+        sessionAckMode: DUPS_OK_ACKNOWLEDGE
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {

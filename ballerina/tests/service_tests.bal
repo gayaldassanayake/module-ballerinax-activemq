@@ -28,9 +28,7 @@ isolated string? queueServiceReceivedMessage = ();
 }
 isolated function testQueueService() returns error? {
     Service consumerSvc = @ServiceConfig {
-        queueName: "service-test-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "service-test-queue"
     } service object {
         remote function onMessage(Message message) returns error? {
             string msg = check string:fromBytes(message.payload);
@@ -68,9 +66,7 @@ isolated function testQueueService() returns error? {
 isolated function testTopicService() returns error? {
     Service consumerSvc = @ServiceConfig {
         topicName: "service-test-topic",
-        subscriberName: "sub-1",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        subscriberName: "sub-1"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {
@@ -102,9 +98,7 @@ isolated int serviceWithCallerReceivedMsgCount = 0;
 isolated function testServiceWithCaller() returns error? {
     Service consumerSvc = @ServiceConfig {
         sessionAckMode: CLIENT_ACKNOWLEDGE,
-        queueName: "service-caller-test-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "service-caller-test-queue"
     } service object {
         remote function onMessage(Message message, Caller caller) returns error? {
             lock {
@@ -133,9 +127,7 @@ isolated int serviceWithTransactionsMsgCount = 0;
 isolated function testServiceWithTransactions() returns error? {
     Service consumerSvc = @ServiceConfig {
         sessionAckMode: SESSION_TRANSACTED,
-        queueName: "trx-service-test-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "trx-service-test-queue"
     } service object {
         isolated remote function onMessage(Message message, Caller caller) returns error? {
             lock {
@@ -164,9 +156,7 @@ isolated int ServiceWithTransactionsRollbackMsgCount = 0;
 isolated function testServiceWithTransactionsRollback() returns error? {
     Service consumerSvc = @ServiceConfig {
         sessionAckMode: SESSION_TRANSACTED,
-        queueName: "trx-rollback-service-test-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "trx-rollback-service-test-queue"
     } service object {
         isolated remote function onMessage(Message message, Caller caller) returns error? {
             int count = 0;
@@ -187,7 +177,9 @@ isolated function testServiceWithTransactionsRollback() returns error? {
     // Send message using test producer utility
     check sendToQueue(BROKER_URL, "trx-rollback-service-test-queue", "Rollback test message");
 
-    runtime:sleep(3);
+    // Redelivery after rollback is driven by the JMS provider's RedeliveryPolicy timer (default
+    // ~1s initial delay) under push delivery, so allow enough headroom past that.
+    runtime:sleep(4);
     lock {
         // Should receive message twice (once before rollback, once after redelivery)
         test:assertEquals(ServiceWithTransactionsRollbackMsgCount, 2,
@@ -204,9 +196,7 @@ isolated function testDurableTopicService() returns error? {
     Service consumerSvc = @ServiceConfig {
         topicName: "service-durable-topic",
         consumerType: DURABLE,
-        subscriberName: "durable-sub-1",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        subscriberName: "durable-sub-1"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {
@@ -238,9 +228,7 @@ isolated int exclusiveQueueServiceReceivedMsgCount = 0;
 isolated function testExclusiveQueueService() returns error? {
     Service consumerSvc = @ServiceConfig {
         queueName: "service-exclusive-queue",
-        exclusive: true,
-        pollingInterval: 1,
-        receiveTimeout: 1
+        exclusive: true
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {
@@ -268,9 +256,7 @@ isolated int messageSelectorServiceReceivedMsgCount = 0;
 isolated function testMessageSelectorService() returns error? {
     Service consumerSvc = @ServiceConfig {
         queueName: "service-selector-queue",
-        messageSelector: "priority = 'high'",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        messageSelector: "priority = 'high'"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {

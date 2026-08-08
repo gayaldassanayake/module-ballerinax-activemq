@@ -44,9 +44,12 @@ import static io.ballerina.lib.activemq.util.CommonUtils.createError;
 import static io.ballerina.lib.activemq.util.ModuleUtils.getModule;
 
 /**
- * Dispatches JMS messages to the Ballerina ActiveMQ service. This class manages the invocation
- * of service methods (onMessage and onError) in the Ballerina runtime using virtual threads for
- * concurrent message processing.
+ * Dispatches JMS messages to the Ballerina ActiveMQ service. {@code onMessage} runs synchronously
+ * on the calling thread — required because ActiveMQ ties automatic redelivery-to-listener (after a
+ * transacted {@code Session.rollback()}) to the thread currently dispatching to the listener;
+ * invoking the Ballerina callback from a separate thread (e.g. a spawned virtual thread) silently
+ * breaks that redelivery. {@code onError} has no {@code Caller} access and no such constraint, so
+ * it still runs on a virtual thread.
  *
  * @since 0.1.0
  */
@@ -72,29 +75,37 @@ public class MessageDispatcher {
     }
 
     /**
-     * Dispatches a JMS message to the Ballerina service's onMessage method. This method spawns a
-     * virtual thread to invoke the Ballerina service method asynchronously, allowing concurrent
-     * message processing.
+     * Associates this dispatcher with the {@link MessageReceiver} it dispatches for, so a failing
+     * {@code onError} handler can stop delivery for that service (see {@link OnErrorCallback}).
      *
-     * @param message        the JMS message to dispatch
-     * @param onMsgCallback  the callback to notify when message processing completes
+     * @param receiver  the message receiver for this dispatcher's service
      */
-    public void onMessage(Message message, OnMsgCallback onMsgCallback) {
-        Thread.startVirtualThread(() -> {
-            try {
-                boolean isConcurrentSafe = nativeService.isOnMessageMethodIsolated();
-                StrandMetadata metadata = new StrandMetadata(isConcurrentSafe, null);
-                Object[] params = getOnMessageParams(message);
-                Object result = ballerinaRuntime.callMethod(
-                        nativeService.getConsumerService(), ON_MESSAGE_METHOD, metadata, params);
-                onMsgCallback.notifySuccess(result);
-            } catch (BError e) {
-                onMsgCallback.notifyFailure(e);
-                onError(e);
-            } catch (JMSException e) {
-                onError(e);
+    public void setReceiver(MessageReceiver receiver) {
+        this.onErrorCallback.setReceiver(receiver);
+    }
+
+    /**
+     * Dispatches a JMS message to the Ballerina service's onMessage method, synchronously on the
+     * calling thread (see class-level doc for why).
+     *
+     * @param message  the JMS message to dispatch
+     */
+    public void onMessage(Message message) {
+        try {
+            boolean isConcurrentSafe = nativeService.isOnMessageMethodIsolated();
+            StrandMetadata metadata = new StrandMetadata(isConcurrentSafe, null);
+            Object[] params = getOnMessageParams(message);
+            Object result = ballerinaRuntime.callMethod(
+                    nativeService.getConsumerService(), ON_MESSAGE_METHOD, metadata, params);
+            if (result instanceof BError bError) {
+                bError.printStackTrace();
             }
-        });
+        } catch (BError bError) {
+            bError.printStackTrace();
+            onError(bError);
+        } catch (JMSException e) {
+            onError(e);
+        }
     }
 
     /**

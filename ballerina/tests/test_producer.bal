@@ -75,6 +75,17 @@ isolated function sendBytesToQueue(string brokerUrl, string queueName, byte[] pa
     'class: "io.ballerina.lib.activemq.util.TestProducer"
 } external;
 
+# Send an ObjectMessage to a queue (a message type the connector cannot map to a Ballerina record)
+#
+# + brokerUrl - The broker URL (e.g., "tcp://localhost:61616")
+# + queueName - The queue name
+# + payload - The serializable object payload
+# + return - Error if sending fails
+isolated function sendObjectMessageToQueue(string brokerUrl, string queueName, string payload) returns error? =
+    @java:Method {
+    'class: "io.ballerina.lib.activemq.util.TestProducer"
+} external;
+
 # Send a message with all JMS headers set (for testing message field mapping)
 #
 # + brokerUrl - The broker URL (e.g., "tcp://localhost:61616")

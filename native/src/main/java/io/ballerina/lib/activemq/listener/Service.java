@@ -98,15 +98,21 @@ public class Service {
             throw createError("Error", "ActiveMQ service must have exactly one or two remote methods.");
         }
 
+        boolean hasOnMessage = false;
         for (RemoteMethodType remoteMethod: remoteMethods) {
             String remoteMethodName = remoteMethod.getName();
             if (ON_MESSAGE_METHOD.equals(remoteMethodName)) {
                 validateOnMessageMethod(remoteMethod);
+                hasOnMessage = true;
             } else if (ON_ERROR_METHOD.equals(remoteMethodName)) {
                 validateOnErrorMethod(remoteMethod);
             } else {
                 throw createError("Error", String.format("Invalid remote method name: %s.", remoteMethodName));
             }
+        }
+
+        if (!hasOnMessage) {
+            throw createError("Error", "ActiveMQ service must declare an 'onMessage' remote method.");
         }
     }
 

@@ -255,6 +255,54 @@ public final class TestProducer {
     }
 
     /**
+     * Send an ObjectMessage to a queue. Used to test that message types the connector cannot map
+     * to a Ballerina record (ObjectMessage/MapMessage/StreamMessage) don't hang the consuming
+     * service's delivery loop.
+     *
+     * @param brokerUrl The broker URL (e.g., "tcp://localhost:61616")
+     * @param queueName The queue name
+     * @param payload   The serializable object payload
+     * @throws JMSException If message sending fails
+     */
+    public static void sendObjectMessageToQueue(BString brokerUrl, BString queueName, BString payload)
+            throws JMSException {
+        Connection connection = null;
+        Session session = null;
+        MessageProducer producer = null;
+
+        try {
+            ActiveMQConnectionFactory connectionFactory = createConnectionFactory(brokerUrl.getValue());
+            connection = connectionFactory.createConnection();
+            connection.start();
+
+            session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            Destination destination = session.createQueue(queueName.getValue());
+            producer = session.createProducer(destination);
+
+            jakarta.jms.ObjectMessage objectMessage = session.createObjectMessage();
+            // A body not assignable to String.class, so message.getBody(String.class) genuinely
+            // throws MessageFormatException instead of trivially succeeding on a String body.
+            objectMessage.setObject(new java.util.ArrayList<>(java.util.List.of(payload.getValue())));
+
+            producer.send(objectMessage);
+        } catch (JMSException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new JMSException("Failed to create connection: " + e.getMessage());
+        } finally {
+            if (producer != null) {
+                producer.close();
+            }
+            if (session != null) {
+                session.close();
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        }
+    }
+
+    /**
      * Send a message with all JMS headers set for testing purposes.
      *
      * @param brokerUrl The broker URL

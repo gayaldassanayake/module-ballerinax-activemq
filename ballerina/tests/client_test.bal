@@ -214,9 +214,7 @@ isolated int clientTopicReceivedCount = 0;
 isolated function testClientSendToTopic() returns error? {
     lock { clientTopicReceivedCount = 0; }
     Service topicSvc = @ServiceConfig {
-        topicName: "client.test.topic",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        topicName: "client.test.topic"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {

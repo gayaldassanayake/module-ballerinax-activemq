@@ -45,9 +45,7 @@ function testVirtualTopicFanOut() returns error? {
     // Consumer group A — subscribes via its own consumer queue.
     Listener listenerA = check new (brokerUrl, username = username, password = password);
     Service svcA = @ServiceConfig {
-        queueName: "Consumer.groupA.VirtualTopic.it.vt.fanout",
-        pollingInterval: 1,
-        receiveTimeout: 2
+        queueName: "Consumer.groupA.VirtualTopic.it.vt.fanout"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock { vtFanOutGroupACount += 1; }
@@ -59,9 +57,7 @@ function testVirtualTopicFanOut() returns error? {
     // Consumer group B — independent copy of every message.
     Listener listenerB = check new (brokerUrl, username = username, password = password);
     Service svcB = @ServiceConfig {
-        queueName: "Consumer.groupB.VirtualTopic.it.vt.fanout",
-        pollingInterval: 1,
-        receiveTimeout: 2
+        queueName: "Consumer.groupB.VirtualTopic.it.vt.fanout"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock { vtFanOutGroupBCount += 1; }
@@ -107,9 +103,7 @@ function testVirtualTopicLoadBalancing() returns error? {
     // Both instances subscribe to the same consumer queue — they compete for messages.
     Listener instance1 = check new (brokerUrl, username = username, password = password);
     Service svc1 = @ServiceConfig {
-        queueName: "Consumer.workers.VirtualTopic.it.vt.lb",
-        pollingInterval: 1,
-        receiveTimeout: 2
+        queueName: "Consumer.workers.VirtualTopic.it.vt.lb"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock { vtLoadBalanceCount += 1; }
@@ -120,9 +114,7 @@ function testVirtualTopicLoadBalancing() returns error? {
 
     Listener instance2 = check new (brokerUrl, username = username, password = password);
     Service svc2 = @ServiceConfig {
-        queueName: "Consumer.workers.VirtualTopic.it.vt.lb",
-        pollingInterval: 1,
-        receiveTimeout: 2
+        queueName: "Consumer.workers.VirtualTopic.it.vt.lb"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock { vtLoadBalanceCount += 1; }

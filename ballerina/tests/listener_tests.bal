@@ -25,6 +25,13 @@ isolated int itListenerTextCount = 0;
 isolated string itListenerTextPayload = "";
 isolated int itListenerOrderedCount = 0;
 isolated int itListenerStopCount = 0;
+isolated int itListenerPushCount = 0;
+isolated int itListenerConcurrentActive = 0;
+isolated boolean itListenerOverlapDetected = false;
+isolated int itListenerConcurrentProcessed = 0;
+isolated int itListenerObjMsgErrorCount = 0;
+isolated int itListenerObjMsgTextCount = 0;
+isolated int itListenerUnrelatedCount = 0;
 
 // TC-LISTENER-01: Listener receives TextMessage from queue within 5 seconds
 @test:Config {
@@ -35,9 +42,7 @@ function testItListenerReceivesTextMessage() returns error? {
     lock { itListenerTextPayload = ""; }
 
     Service listenerTextSvc = @ServiceConfig {
-        queueName: "it.listener.text.queue",
-        pollingInterval: 1,
-        receiveTimeout: 2
+        queueName: "it.listener.text.queue"
     } service object {
         remote function onMessage(Message message) returns error? {
             string payload = check string:fromBytes(message.payload);
@@ -77,9 +82,7 @@ function testItListenerReceivesMultipleMessages() returns error? {
     lock { itListenerOrderedCount = 0; }
 
     Service listenerOrderSvc = @ServiceConfig {
-        queueName: "it.listener.order.queue",
-        pollingInterval: 1,
-        receiveTimeout: 2
+        queueName: "it.listener.order.queue"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock { itListenerOrderedCount += 1; }
@@ -119,9 +122,7 @@ function testItListenerStartupFailure() {
         // Lazy connection: error must surface on first attach, not be swallowed.
         Error? attachResult = result.attach(
             @ServiceConfig {
-                queueName: "it.listener.fail.queue",
-                pollingInterval: 1,
-                receiveTimeout: 1
+                queueName: "it.listener.fail.queue"
             } service object {
                 remote function onMessage(Message message) returns error? {}
             },
@@ -142,9 +143,7 @@ function testItListenerGracefulStop() returns error? {
 
     Listener stopListener = check new (brokerUrl, username = username, password = password);
     Service stopSvc = @ServiceConfig {
-        queueName: "it.listener.stop.queue",
-        pollingInterval: 1,
-        receiveTimeout: 2
+        queueName: "it.listener.stop.queue"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock { itListenerStopCount += 1; }
@@ -178,6 +177,176 @@ function testItListenerGracefulStop() returns error? {
     lock { countAfterStop = itListenerStopCount; }
     test:assertEquals(countAfterStop, countBeforeStop,
         "no further messages should be delivered after gracefulStop");
+}
+
+// TC-LISTENER-05: Listener delivers a message within 1 second — proves delivery is native JMS
+// push, not the old poll loop (task 26).
+@test:Config {
+    groups: ["integration", "listener"]
+}
+function testItListenerPushDeliveryIsFast() returns error? {
+    lock { itListenerPushCount = 0; }
+
+    Service pushSvc = @ServiceConfig {
+        queueName: "it.listener.push.queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+            lock { itListenerPushCount += 1; }
+        }
+    };
+    check itListener.attach(pushSvc, "it-push-svc");
+
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
+        messageId: "it-push-01",
+        payload: "push delivery".toBytes()
+    }, {queueName: "it.listener.push.queue"});
+    check prod->close();
+
+    runtime:sleep(1);
+
+    int count = 0;
+    lock { count = itListenerPushCount; }
+    test:assertTrue(count >= 1,
+        "message should be delivered within 1 second via native push delivery, not polling");
+}
+
+// TC-LISTENER-06: Messages for a single service are processed sequentially, never overlapping —
+// the semaphore-based serialization must survive the poll-to-push rewrite (task 26).
+@test:Config {
+    groups: ["integration", "listener"]
+}
+function testItListenerSequentialProcessing() returns error? {
+    lock { itListenerConcurrentActive = 0; }
+    lock { itListenerOverlapDetected = false; }
+    lock { itListenerConcurrentProcessed = 0; }
+
+    Service seqSvc = @ServiceConfig {
+        queueName: "it.listener.sequential.queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+            int activeNow = 0;
+            lock {
+                itListenerConcurrentActive += 1;
+                activeNow = itListenerConcurrentActive;
+            }
+            if activeNow > 1 {
+                lock { itListenerOverlapDetected = true; }
+            }
+            runtime:sleep(0.3);
+            lock { itListenerConcurrentActive -= 1; }
+            lock { itListenerConcurrentProcessed += 1; }
+        }
+    };
+    check itListener.attach(seqSvc, "it-seq-svc");
+
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    foreach int i in 1 ... 5 {
+        check prod->send({
+            messageId: string `seq-${i}`,
+            payload: string `msg-${i}`.toBytes()
+        }, {queueName: "it.listener.sequential.queue"});
+    }
+    check prod->close();
+
+    runtime:sleep(4);
+
+    int processed = 0;
+    boolean overlap = false;
+    lock { processed = itListenerConcurrentProcessed; }
+    lock { overlap = itListenerOverlapDetected; }
+    test:assertEquals(processed, 5, "all 5 messages should be processed");
+    test:assertFalse(overlap, "messages for a single service must be processed sequentially, not concurrently");
+}
+
+// TC-LISTENER-07: An unexpected JMS message type (ObjectMessage) must not hang the service's
+// delivery loop — the next text message on the same queue must still be delivered (task 13).
+@test:Config {
+    groups: ["integration", "listener"]
+}
+function testItListenerUnsupportedMessageTypeDoesNotHang() returns error? {
+    lock { itListenerObjMsgErrorCount = 0; }
+    lock { itListenerObjMsgTextCount = 0; }
+
+    Service objMsgSvc = @ServiceConfig {
+        queueName: "it.listener.objmsg.queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+            lock { itListenerObjMsgTextCount += 1; }
+        }
+
+        remote function onError(Error err) returns error? {
+            lock { itListenerObjMsgErrorCount += 1; }
+        }
+    };
+    check itListener.attach(objMsgSvc, "it-objmsg-svc");
+
+    check sendObjectMessageToQueue(brokerUrl, "it.listener.objmsg.queue", "unsupported-payload");
+    runtime:sleep(2);
+
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
+        messageId: "it-objmsg-followup",
+        payload: "still alive".toBytes()
+    }, {queueName: "it.listener.objmsg.queue"});
+    check prod->close();
+
+    runtime:sleep(3);
+
+    int errorCount = 0;
+    int textCount = 0;
+    lock { errorCount = itListenerObjMsgErrorCount; }
+    lock { textCount = itListenerObjMsgTextCount; }
+    test:assertTrue(errorCount >= 1, "onError should be invoked for the unsupported ObjectMessage");
+    test:assertTrue(textCount >= 1,
+        "the service must still receive the follow-up text message — the delivery loop must not hang");
+}
+
+// TC-LISTENER-08: A failing onError handler must not crash the runtime — other services on the
+// same listener must remain unaffected (task 12).
+@test:Config {
+    groups: ["integration", "listener"]
+}
+function testItListenerFailingOnErrorDoesNotCrashRuntime() returns error? {
+    lock { itListenerUnrelatedCount = 0; }
+
+    Service failingOnErrorSvc = @ServiceConfig {
+        queueName: "it.listener.failingonerror.queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+        }
+
+        remote function onError(Error err) returns error? {
+            panic error("intentional onError failure for test coverage");
+        }
+    };
+    check itListener.attach(failingOnErrorSvc, "it-failing-onerror-svc");
+
+    Service unrelatedSvc = @ServiceConfig {
+        queueName: "it.listener.unrelated.queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+            lock { itListenerUnrelatedCount += 1; }
+        }
+    };
+    check itListener.attach(unrelatedSvc, "it-unrelated-svc");
+
+    check sendObjectMessageToQueue(brokerUrl, "it.listener.failingonerror.queue", "trigger-onerror-failure");
+    runtime:sleep(2);
+
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
+        messageId: "it-unrelated-01",
+        payload: "unrelated service still alive".toBytes()
+    }, {queueName: "it.listener.unrelated.queue"});
+    check prod->close();
+
+    runtime:sleep(3);
+
+    int unrelatedCount = 0;
+    lock { unrelatedCount = itListenerUnrelatedCount; }
+    test:assertTrue(unrelatedCount >= 1,
+        "a failing onError handler must not crash the runtime — other services must keep working");
 }
 
 @test:AfterSuite

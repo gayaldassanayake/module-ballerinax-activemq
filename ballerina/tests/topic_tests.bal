@@ -30,9 +30,7 @@ function testItTopicPublishAndSubscribe() returns error? {
 
     Listener topicListener = check new (brokerUrl, username = username, password = password);
     Service topicSvc = @ServiceConfig {
-        topicName: "it.topic.single",
-        pollingInterval: 1,
-        receiveTimeout: 2
+        topicName: "it.topic.single"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock { itTopicSingleSubCount += 1; }
@@ -70,9 +68,7 @@ function testItTopicMultipleSubscribers() returns error? {
 
     Listener sub1Listener = check new (brokerUrl, username = username, password = password);
     Service sub1Svc = @ServiceConfig {
-        topicName: "it.topic.multi",
-        pollingInterval: 1,
-        receiveTimeout: 2
+        topicName: "it.topic.multi"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock { itTopicMultiSub1Count += 1; }
@@ -83,9 +79,7 @@ function testItTopicMultipleSubscribers() returns error? {
 
     Listener sub2Listener = check new (brokerUrl, username = username, password = password);
     Service sub2Svc = @ServiceConfig {
-        topicName: "it.topic.multi",
-        pollingInterval: 1,
-        receiveTimeout: 2
+        topicName: "it.topic.multi"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock { itTopicMultiSub2Count += 1; }

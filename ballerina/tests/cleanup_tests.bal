@@ -87,9 +87,7 @@ function testItListenerServiceCleanup() returns error? {
     }
     Listener cleanupListener = check new (brokerUrl, username = username, password = password);
     Service cleanupSvc = @ServiceConfig {
-        queueName: "it.cleanup.listener.queue",
-        pollingInterval: 1,
-        receiveTimeout: 2
+        queueName: "it.cleanup.listener.queue"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {

@@ -255,17 +255,12 @@ public type RedeliveryPolicy record {|
 #                     properties matching the selector are delivered. For example, to receive only
 #                     messages with property `priority` set to `'high'`, use: `"priority = 'high'"`.
 #                     If not set, all messages from the destination will be delivered.
-# + pollingInterval - The interval (in seconds) between polling attempts for new messages
-# + receiveTimeout - The timeout (in seconds) to wait for a message when polling. If no message
-#                    arrives within this time, the receive operation returns without a message.
 # + exclusive - When enabled, only this consumer can consume messages from the destination,
 #               preventing other consumers from receiving messages from the same destination
 # + redeliveryPolicy - Configurations for message redelivery behavior when messages fail processing
 type CommonSubscriptionConfig record {|
     AcknowledgementMode sessionAckMode = AUTO_ACKNOWLEDGE;
     string messageSelector?;
-    decimal pollingInterval = 10;
-    decimal receiveTimeout = 5;
     boolean exclusive = false;
     RedeliveryPolicy redeliveryPolicy?;
 |};

@@ -121,6 +121,27 @@ isolated function testSvcWithInvalidOnMessageParams() returns error? {
 @test:Config {
     groups: ["service", "validations"]
 }
+isolated function testSvcWithOnlyOnError() returns error? {
+    Service svc = @ServiceConfig {
+        queueName: "test-svc-only-onerror"
+    } service object {
+        // Invalid - a service must declare onMessage; onError alone is not enough
+        remote function onError(Error err) returns error? {
+        }
+    };
+    Error? result = activemqListener.attach(svc);
+    test:assertTrue(result is Error);
+    if result is Error {
+        test:assertEquals(
+                result.message(),
+                "Failed to attach service to listener: ActiveMQ service must declare an 'onMessage' remote method.",
+                "Invalid error message received");
+    }
+}
+
+@test:Config {
+    groups: ["service", "validations"]
+}
 isolated function testSvcWithInvalidOnErrorParams() returns error? {
     Service svc = @ServiceConfig {
         queueName: "test-svc-error"

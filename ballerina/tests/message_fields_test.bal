@@ -30,9 +30,7 @@ function testAllMessageFields() returns error? {
         receivedMessageWithFields = ();
     }
     Service consumerSvc = @ServiceConfig {
-        queueName: "message-fields-test-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "message-fields-test-queue"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {
@@ -108,9 +106,7 @@ int redeliveryTestCount = 0;
 function testRedeliveredField() returns error? {
     Service consumerSvc = @ServiceConfig {
         sessionAckMode: SESSION_TRANSACTED,
-        queueName: "redelivery-test-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "redelivery-test-queue"
     } service object {
         remote function onMessage(Message message, Caller caller) returns error? {
             int count = 0;
@@ -154,9 +150,7 @@ Message? messageWithType = ();
 }
 function testTypeField() returns error? {
     Service consumerSvc = @ServiceConfig {
-        queueName: "type-test-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "type-test-queue"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {
@@ -190,9 +184,7 @@ Message? nonPersistentMessage = ();
 }
 function testPersistentField() returns error? {
     Service consumerSvc1 = @ServiceConfig {
-        queueName: "persistent-test-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "persistent-test-queue"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {
@@ -203,9 +195,7 @@ function testPersistentField() returns error? {
     check messageFieldsListener.attach(consumerSvc1, "persistent-test-service");
 
     Service consumerSvc2 = @ServiceConfig {
-        queueName: "non-persistent-test-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "non-persistent-test-queue"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {

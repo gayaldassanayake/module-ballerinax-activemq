@@ -44,9 +44,7 @@ isolated function testSSLQueueWithKeyStore() returns error? {
     });
 
     Service consumerSvc = @ServiceConfig {
-        queueName: "ssl-test-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "ssl-test-queue"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {
@@ -90,9 +88,7 @@ isolated function testSSLTopicWithKeyStore() returns error? {
 
     Service consumerSvc = @ServiceConfig {
         topicName: "ssl-test-topic",
-        subscriberName: "ssl-sub-1",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        subscriberName: "ssl-sub-1"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {
@@ -140,9 +136,7 @@ isolated function testSSLWithCertKeyConfiguration() returns error? {
     });
 
     Service consumerSvc = @ServiceConfig {
-        queueName: "ssl-certkey-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "ssl-certkey-queue"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {
@@ -193,9 +187,7 @@ isolated function testSSLWithTransactions() returns error? {
 
     Service consumerSvc = @ServiceConfig {
         sessionAckMode: SESSION_TRANSACTED,
-        queueName: "ssl-trx-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "ssl-trx-queue"
     } service object {
         isolated remote function onMessage(Message message, Caller caller) returns error? {
             lock {
@@ -247,9 +239,7 @@ isolated function testSSLWithClientAcknowledge() returns error? {
 
     Service consumerSvc = @ServiceConfig {
         sessionAckMode: CLIENT_ACKNOWLEDGE,
-        queueName: "ssl-client-ack-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "ssl-client-ack-queue"
     } service object {
         remote function onMessage(Message message, Caller caller) returns error? {
             lock {
@@ -301,9 +291,7 @@ isolated function testSSLWithMessageSelector() returns error? {
 
     Service consumerSvc = @ServiceConfig {
         queueName: "ssl-selector-queue",
-        messageSelector: "priority = 'high'",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        messageSelector: "priority = 'high'"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {
@@ -357,9 +345,7 @@ isolated function testSSLWithDurableTopic() returns error? {
     Service consumerSvc = @ServiceConfig {
         topicName: "ssl-durable-topic",
         consumerType: DURABLE,
-        subscriberName: "ssl-durable-sub",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        subscriberName: "ssl-durable-sub"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {
@@ -410,9 +396,7 @@ isolated function testSSLWithExclusiveConsumer() returns error? {
 
     Service consumerSvc = @ServiceConfig {
         queueName: "ssl-exclusive-queue",
-        exclusive: true,
-        pollingInterval: 1,
-        receiveTimeout: 1
+        exclusive: true
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {
@@ -464,9 +448,7 @@ isolated function testSSLWithAuthentication() returns error? {
     });
 
     Service consumerSvc = @ServiceConfig {
-        queueName: "ssl-auth-queue",
-        pollingInterval: 1,
-        receiveTimeout: 1
+        queueName: "ssl-auth-queue"
     } service object {
         remote function onMessage(Message message) returns error? {
             lock {

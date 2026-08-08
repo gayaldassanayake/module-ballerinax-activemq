@@ -115,7 +115,7 @@ public function main() returns error? {
 
 ### 5. Subscribe with a Listener service
 
-The `Listener` polls a queue (or topic) and delivers each message to the `onMessage`
+The `Listener` delivers each message pushed to a queue (or topic) to the `onMessage`
 remote method:
 
 ```ballerina
@@ -128,9 +128,7 @@ listener activemq:Listener mqListener = check new ("tcp://localhost:61616",
 );
 
 @activemq:ServiceConfig {
-    queueName: "orders.queue",
-    pollingInterval: 2,     // seconds between polls
-    receiveTimeout: 5       // seconds to wait for a message per poll
+    queueName: "orders.queue"
 }
 service activemq:Service on mqListener {
     remote function onMessage(activemq:Message message) returns error? {

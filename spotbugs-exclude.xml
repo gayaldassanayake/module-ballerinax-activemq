@@ -16,12 +16,6 @@
   ~ under the License.
   -->
 <FindBugsFilter>
-    <!-- System.exit is intentional for fatal errors in error callback -->
-    <Match>
-        <Class name="io.ballerina.lib.activemq.listener.OnErrorCallback"/>
-        <Bug pattern="DM_EXIT"/>
-    </Match>
-
     <!-- JMS objects (Session, MessageConsumer) cannot be cloned - false positive -->
     <Match>
         <Class name="io.ballerina.lib.activemq.listener.MessageReceiver"/>
@@ -31,6 +25,11 @@
     <Match>
         <Class name="io.ballerina.lib.activemq.listener.MessageReceiver"/>
         <Field name="consumer"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="io.ballerina.lib.activemq.listener.MessageReceiver"/>
+        <Field name="messageDispatcher"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
 

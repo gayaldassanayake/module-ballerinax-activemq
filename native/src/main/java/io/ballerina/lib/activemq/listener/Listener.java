@@ -162,8 +162,8 @@ public final class Listener {
             MessageConsumer consumer = getConsumer(session, svcConfig);
 
             MessageDispatcher messageDispatcher = new MessageDispatcher(env.getRuntime(), nativeService, session);
-            MessageReceiver receiver = new MessageReceiver(
-                    session, consumer, messageDispatcher, svcConfig.pollingInterval(), svcConfig.receiveTimeout());
+            MessageReceiver receiver = new MessageReceiver(session, consumer, messageDispatcher);
+            messageDispatcher.setReceiver(receiver);
             bService.addNativeData(NATIVE_SERVICE, nativeService);
             bService.addNativeData(NATIVE_RECEIVER, receiver);
             List<BObject> serviceList = getBServices(bListener);

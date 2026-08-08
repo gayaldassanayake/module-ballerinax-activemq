@@ -21,8 +21,6 @@ package io.ballerina.lib.activemq.util;
 import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.api.values.BString;
 
-import java.math.BigDecimal;
-
 /**
  * Constants for ActiveMQ connector.
  */
@@ -82,8 +80,6 @@ public interface ActiveMQConstants {
     BString NO_LOCAL = StringUtils.fromString("noLocal");
     BString CONSUMER_TYPE = StringUtils.fromString("consumerType");
     BString SUBSCRIBER_NAME = StringUtils.fromString("subscriberName");
-    BString POLLING_INTERVAL = StringUtils.fromString("pollingInterval");
-    BString RECEIVE_TIMEOUT = StringUtils.fromString("receiveTimeout");
     BString EXCLUSIVE = StringUtils.fromString("exclusive");
 
     // Scheduled delivery field names (ActiveMQ Classic scheduler)
@@ -130,7 +126,4 @@ public interface ActiveMQConstants {
 
     // Error
     String ACTIVEMQ_ERROR = "Error";
-
-    // Millisecond multiplier for time conversions
-    BigDecimal MILLISECOND_MULTIPLIER = new BigDecimal(1000);
 }

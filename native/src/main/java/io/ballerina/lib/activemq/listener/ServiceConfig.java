@@ -28,10 +28,6 @@ import io.ballerina.lib.activemq.util.RedeliveryPolicyConfig;
 public interface ServiceConfig {
     String ackMode();
 
-    long pollingInterval();
-
-    long receiveTimeout();
-
     RedeliveryPolicyConfig redeliveryPolicyConfig();
 
     boolean exclusive();
