@@ -28,7 +28,7 @@ public interface ActiveMQConstants {
 
     BString USERNAME = StringUtils.fromString("username");
     BString PASSWORD = StringUtils.fromString("password");
-    BString CLIENT_ID = StringUtils.fromString("clientId");
+    BString CLIENT_ID = StringUtils.fromString("clientID");
     BString SECURE_SOCKET = StringUtils.fromString("secureSocket");
     BString OPTIMIZE_ACKNOWLEDGEMENTS = StringUtils.fromString("optimizeAcknowledgements");
     BString SET_ALWAYS_SESSION_ASYNC = StringUtils.fromString("setAlwaysSessionAsync");
@@ -41,9 +41,9 @@ public interface ActiveMQConstants {
     BString ACK_MODE = StringUtils.fromString("ackMode");
 
     // Prefetch policy field names
-    BString QUEUE_PREFETCH = StringUtils.fromString("queuePrefetch");
-    BString TOPIC_PREFETCH = StringUtils.fromString("topicPrefetch");
-    BString DURABLE_TOPIC_PREFETCH = StringUtils.fromString("durableTopicPrefetch");
+    BString QUEUE_PREFETCH = StringUtils.fromString("queuePrefetchSize");
+    BString TOPIC_PREFETCH = StringUtils.fromString("topicPrefetchSize");
+    BString DURABLE_TOPIC_PREFETCH = StringUtils.fromString("durableTopicPrefetchSize");
     BString OPTIMIZE_DURABLE_TOPIC_PREFETCH_SIZE = StringUtils.fromString("optimizeDurableTopicPrefetchSize");
 
     // Redelivery policy field names

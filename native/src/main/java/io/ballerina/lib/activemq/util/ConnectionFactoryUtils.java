@@ -76,6 +76,7 @@ public final class ConnectionFactoryUtils {
             factory.setPassword(password);
         }
 
+        factory.setClientID(config.clientId());
         factory.setOptimizeAcknowledge(config.optimizeAcknowledgements());
         factory.setAlwaysSessionAsync(config.setAlwaysSessionAsync());
 

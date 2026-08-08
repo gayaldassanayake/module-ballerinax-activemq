@@ -23,3 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - Removed the unused, auto-generated `gradle/libs.versions.toml` stub.
+
+### Fixed
+- Fixed `PrefetchPolicy` being completely non-functional: configuring it at all, even with every
+  field set, always crashed with a `NullPointerException` due to 3 of its 4 fields being looked up
+  under the wrong native key names.
+- Fixed `clientID` silently being a no-op: a case-mismatch in the native lookup key meant an
+  explicitly configured `clientID` was always discarded in favor of a random UUID.
