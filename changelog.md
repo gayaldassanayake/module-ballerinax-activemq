@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added an `examples/` directory with three runnable examples: sending to a queue, pull-receiving
+  from a queue, and consuming via a `Listener`/`Service`.
 - Extended typed payload data binding to `Listener`/`Service`'s `onMessage`: its parameter can now
   narrow `Message`'s `payload` field to a specific type (e.g.
   `record {|*activemq:Message; string payload;|}`), the same way `MessageConsumer.receive()`
