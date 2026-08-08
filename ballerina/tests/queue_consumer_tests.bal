@@ -15,6 +15,7 @@
 // under the License.
 
 import ballerina/test;
+import ballerina/time;
 
 // TC-QUEUE-CONS-01: Receive TextMessage from queue
 @test:Config {
@@ -105,4 +106,48 @@ function testItReceiveTimeoutEmptyQueue() returns error? {
     check consumer->close();
     test:assertTrue(received is (),
         "should return () — not an error — when no message arrives within the timeout");
+}
+
+// TC-QUEUE-CONS-05: receiveNoWait() returns a message that's already sitting on the queue
+@test:Config {
+    groups: ["integration", "queue-consumer"]
+}
+function testItReceiveNoWaitReturnsAvailableMessage() returns error? {
+    check drainQueue("it.cons.nowait.queue");
+    MessageProducer producer = check new (brokerUrl, username = username, password = password);
+    check producer->send({
+        messageId: "it-cons-nowait-01",
+        payload: "Hello NoWait".toBytes()
+    }, {queueName: "it.cons.nowait.queue"});
+    check producer->close();
+
+    MessageConsumer consumer = check new (brokerUrl,
+        username = username, password = password, destination = {queueName: "it.cons.nowait.queue"});
+    record {|*Message; byte[] payload;|}? received = check consumer->receiveNoWait();
+    check consumer->close();
+    test:assertTrue(received is Message, "should receive the already-enqueued message without waiting");
+    if received is Message {
+        string content = check string:fromBytes(received.payload);
+        test:assertEquals(content, "Hello NoWait", "text payload should match");
+    }
+}
+
+// TC-QUEUE-CONS-06: receiveNoWait() returns () immediately, not after blocking like receive(timeout) does
+@test:Config {
+    groups: ["integration", "queue-consumer"]
+}
+function testItReceiveNoWaitEmptyQueueReturnsImmediately() returns error? {
+    check drainQueue("it.cons.nowait.empty.queue");
+    MessageConsumer consumer = check new (brokerUrl,
+        username = username, password = password, destination = {queueName: "it.cons.nowait.empty.queue"});
+
+    time:Utc before = time:utcNow();
+    Message? received = check consumer->receiveNoWait();
+    time:Utc after = time:utcNow();
+    check consumer->close();
+
+    test:assertTrue(received is (), "should return () — not an error — when nothing is immediately available");
+    decimal elapsedSeconds = time:utcDiffSeconds(after, before);
+    test:assertTrue(elapsedSeconds < 1d,
+        "receiveNoWait() should return near-instantly, not block like receive(timeout) does");
 }
