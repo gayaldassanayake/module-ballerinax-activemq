@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import ballerina/lang.runtime;
 import ballerina/test;
 import ballerina/time;
 
@@ -120,6 +121,11 @@ function testItReceiveNoWaitReturnsAvailableMessage() returns error? {
         payload: "Hello NoWait".toBytes()
     }, {queueName: "it.cons.nowait.queue"});
     check producer->close();
+
+    // Give the message a moment to actually land on the broker before the consumer is created --
+    // under load (e.g. the full test suite), the send/consumer-creation race can otherwise make
+    // receiveNoWait() see nothing yet, since it never waits.
+    runtime:sleep(0.5);
 
     MessageConsumer consumer = check new (brokerUrl,
         username = username, password = password, destination = {queueName: "it.cons.nowait.queue"});
