@@ -91,6 +91,7 @@ checkstyle {
 }
 
 checkstyleMain.dependsOn ':checkstyle:downloadCheckstyleRuleFiles'
+checkstyleTest.dependsOn ':checkstyle:downloadCheckstyleRuleFiles'
 
 jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -99,6 +100,16 @@ jar {
         exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
     }
 }
+
+// Test-only native helpers (e.g. TestProducer, used by ballerina/tests/*.bal) are packaged separately
+// so they never ship inside the released activemq-native jar.
+tasks.register('testJar', Jar) {
+    archiveBaseName = 'activemq-native-tests'
+    archiveVersion = project.version.toString()
+    from sourceSets.test.output
+}
+
+assemble.dependsOn testJar
 
 compileJava {
     doFirst {

@@ -7,5 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Moved the test-only `TestProducer` native helper out of the released `activemq-native` jar into a
+  separate `testOnly`-scoped jar, so test utilities no longer ship in the production artifact.
+
 ### Removed
 - Removed the unused, auto-generated `gradle/libs.versions.toml` stub.
