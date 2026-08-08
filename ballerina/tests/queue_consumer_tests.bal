@@ -122,14 +122,24 @@ function testItReceiveNoWaitReturnsAvailableMessage() returns error? {
     }, {queueName: "it.cons.nowait.queue"});
     check producer->close();
 
-    // Give the message a moment to actually land on the broker before the consumer is created --
-    // under load (e.g. the full test suite), the send/consumer-creation race can otherwise make
-    // receiveNoWait() see nothing yet, since it never waits.
-    runtime:sleep(0.5);
-
     MessageConsumer consumer = check new (brokerUrl,
         username = username, password = password, destination = {queueName: "it.cons.nowait.queue"});
-    record {|*Message; byte[] payload;|}? received = check consumer->receiveNoWait();
+
+    // The message is already enqueued on the broker by now, but the client's local prefetch buffer
+    // is filled asynchronously over the wire, so there's no fixed delay that's reliably long enough
+    // under load. Poll with receiveNoWait() itself instead of guessing a single sleep duration --
+    // each individual call still returns immediately, this loop just bounds how long we wait for
+    // the async delivery to catch up.
+    record {|*Message; byte[] payload;|}? received = ();
+    int attempts = 0;
+    while attempts < 20 {
+        received = check consumer->receiveNoWait();
+        if received is Message {
+            break;
+        }
+        runtime:sleep(0.1);
+        attempts += 1;
+    }
     check consumer->close();
     test:assertTrue(received is Message, "should receive the already-enqueued message without waiting");
     if received is Message {
