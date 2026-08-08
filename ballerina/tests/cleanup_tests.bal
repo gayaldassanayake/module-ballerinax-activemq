@@ -164,3 +164,52 @@ function testItListenerGracefulStopAfterPartialDetach() returns error? {
     check partialDetachListener.detach(svcA);
     check partialDetachListener.gracefulStop();
 }
+
+isolated int itDetachStopsDeliveryCount = 0;
+
+// TC-CLEANUP-07: detach() actually stops message delivery to the detached service, not just its
+// internal bookkeeping (TC-CLEANUP-05/06 only guard against a crash on subsequent operations).
+@test:Config {
+    groups: ["integration", "cleanup"]
+}
+function testItListenerDetachStopsDelivery() returns error? {
+    check drainQueue("it.cleanup.detach.stops.delivery.queue");
+    lock { itDetachStopsDeliveryCount = 0; }
+    Listener detachDeliveryListener = check new (brokerUrl, username = username, password = password);
+    Service detachDeliverySvc = @ServiceConfig {
+        queueName: "it.cleanup.detach.stops.delivery.queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+            lock { itDetachStopsDeliveryCount += 1; }
+        }
+    };
+    check detachDeliveryListener.attach(detachDeliverySvc, "it-detach-stops-delivery-svc");
+    check detachDeliveryListener.'start();
+
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
+        messageId: "it-detach-stops-delivery-01",
+        payload: "before detach".toBytes()
+    }, {queueName: "it.cleanup.detach.stops.delivery.queue"});
+
+    runtime:sleep(3);
+    int countBeforeDetach = 0;
+    lock { countBeforeDetach = itDetachStopsDeliveryCount; }
+    test:assertEquals(countBeforeDetach, 1, "service should receive the message before detaching");
+
+    check detachDeliveryListener.detach(detachDeliverySvc);
+
+    check prod->send({
+        messageId: "it-detach-stops-delivery-02",
+        payload: "after detach".toBytes()
+    }, {queueName: "it.cleanup.detach.stops.delivery.queue"});
+    check prod->close();
+
+    runtime:sleep(3);
+    int countAfterDetach = 0;
+    lock { countAfterDetach = itDetachStopsDeliveryCount; }
+    test:assertEquals(countAfterDetach, 1,
+        "detach() should stop delivery -- the second message must not reach the detached service");
+
+    check detachDeliveryListener.gracefulStop();
+}
