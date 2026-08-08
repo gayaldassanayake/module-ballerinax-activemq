@@ -179,12 +179,14 @@ public final class Listener {
     }
 
     /**
-     * Detaches a Ballerina service from the listener by stopping its message receiver.
+     * Detaches a Ballerina service from the listener by stopping its message receiver and
+     * removing it from the listener's bookkeeping.
      *
-     * @param bService  the Ballerina service to detach
+     * @param bListener  the Ballerina listener
+     * @param bService   the Ballerina service to detach
      * @return null on success, BError on failure
      */
-    public static Object detach(BObject bService) {
+    public static Object detach(BObject bListener, BObject bService) {
         Object receiver = bService.getNativeData(NATIVE_RECEIVER);
         try {
             if (Objects.isNull(receiver)) {
@@ -196,6 +198,9 @@ public final class Listener {
             return createError(ACTIVEMQ_ERROR,
                     String.format("Failed to detach a service from the listener: %s", errorMsg), e);
         }
+        getBServices(bListener).remove(bService);
+        bService.addNativeData(NATIVE_SERVICE, null);
+        bService.addNativeData(NATIVE_RECEIVER, null);
         return null;
     }
 

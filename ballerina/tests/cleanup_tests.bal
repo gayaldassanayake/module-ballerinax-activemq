@@ -112,3 +112,55 @@ function testItListenerServiceCleanup() returns error? {
     }
     check cleanupListener.gracefulStop();
 }
+
+// TC-CLEANUP-05: detach() removes the service from the listener's bookkeeping, so a later
+// start() does not fail trying to re-register a consumer that detach() already closed.
+@test:Config {
+    groups: ["integration", "cleanup"]
+}
+function testItListenerStartAfterDetach() returns error? {
+    check drainQueue("it.cleanup.detach.queue");
+    Listener detachListener = check new (brokerUrl, username = username, password = password);
+    Service detachSvc = @ServiceConfig {
+        queueName: "it.cleanup.detach.queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+        }
+    };
+    check detachListener.attach(detachSvc, "it-detach-svc");
+    check detachListener.'start();
+    check detachListener.detach(detachSvc);
+
+    // Previously threw a JMSException ("consumer closed") because the detached service's
+    // stale entry was never removed from the listener's internal service list.
+    check detachListener.'start();
+    check detachListener.gracefulStop();
+}
+
+// TC-CLEANUP-06: gracefulStop() after detaching one of several attached services must not fail
+// (regression guard for double-stopping a receiver that's no longer in the bookkeeping list).
+@test:Config {
+    groups: ["integration", "cleanup"]
+}
+function testItListenerGracefulStopAfterPartialDetach() returns error? {
+    check drainQueue("it.cleanup.detach2.queue");
+    check drainQueue("it.cleanup.detach3.queue");
+    Listener partialDetachListener = check new (brokerUrl, username = username, password = password);
+    Service svcA = @ServiceConfig {
+        queueName: "it.cleanup.detach2.queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+        }
+    };
+    Service svcB = @ServiceConfig {
+        queueName: "it.cleanup.detach3.queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+        }
+    };
+    check partialDetachListener.attach(svcA, "it-detach-svc-a");
+    check partialDetachListener.attach(svcB, "it-detach-svc-b");
+    check partialDetachListener.'start();
+    check partialDetachListener.detach(svcA);
+    check partialDetachListener.gracefulStop();
+}
