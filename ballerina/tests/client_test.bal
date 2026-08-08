@@ -548,3 +548,102 @@ function testConcurrentProducerSendIsThreadSafe() returns error? {
     test:assertEquals(received, 3,
         "all 3 concurrently-sent messages should arrive intact, none lost or corrupted");
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 18: A transacted producer's commit()/rollback() after close() returns an
+// Error instead of panicking.
+// ─────────────────────────────────────────────────────────────────────────────
+
+@test:Config {
+    groups: ["client", "transaction"]
+}
+isolated function testClientTransactionCommitAfterCloseReturnsError() returns error? {
+    MessageProducer producer = check new (BROKER_URL, transacted = true);
+    check producer->close();
+    Error? result = producer->'commit();
+    test:assertTrue(result is Error, "commit after close should return an Error, not panic");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 19: A transacted producer's close() is idempotent, same as the plain
+// producer's (cleanup_tests.bal TC-CLEANUP-01), verified for the transacted
+// path specifically since task 6 collapsed Transaction into both.
+// ─────────────────────────────────────────────────────────────────────────────
+
+@test:Config {
+    groups: ["client", "transaction"]
+}
+isolated function testClientTransactionDoubleCloseIdempotent() returns error? {
+    MessageProducer producer = check new (BROKER_URL, transacted = true);
+    check producer->close();
+    // Second close: () or Error are both acceptable; what matters is no panic.
+    do { check producer->close(); } on fail { }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 20: A client-side send failure mid-transaction (an unsupported payload
+// type never reaches the broker) doesn't poison the transacted session --
+// rollback and close still work cleanly afterward, and nothing is delivered,
+// including the earlier message that was mapped successfully but never
+// committed.
+// ─────────────────────────────────────────────────────────────────────────────
+
+@test:Config {
+    groups: ["client", "transaction"]
+}
+function testClientTransactionRollbackAfterSendFailure() returns error? {
+    string queueName = "client.tx.sendfailure.queue";
+    check drainQueue(queueName);
+    MessageProducer producer = check new (BROKER_URL, transacted = true);
+    check producer->send({
+        messageId: "tx-fail-1",
+        payload: "will never be committed".toBytes()
+    }, {queueName});
+
+    // int has no dispatch branch in MessageMapper.createOutgoingMessage -- fails before
+    // ever reaching the broker.
+    anydata unsupportedPayload = 5;
+    Error? result = producer->send({payload: unsupportedPayload}, {queueName});
+    test:assertTrue(result is Error, "sending an unsupported payload type should fail, not panic");
+
+    check producer->'rollback();
+    check producer->close();
+
+    MessageConsumer consumer = check new (BROKER_URL, destination = {queueName});
+    Message? msg = check consumer->receive(2000);
+    check consumer->close();
+    test:assertTrue(msg is (),
+        "rollback after a send failure must discard the whole transaction, including the earlier message");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 21: A transacted consumer's commit()/rollback() after close() returns an
+// Error instead of panicking (symmetric with test 18, for MessageConsumer).
+// ─────────────────────────────────────────────────────────────────────────────
+
+@test:Config {
+    groups: ["client", "transaction"]
+}
+isolated function testClientConsumerTransactionCommitAfterCloseReturnsError() returns error? {
+    MessageConsumer consumer = check new (BROKER_URL,
+        ackMode = SESSION_TRANSACTED, destination = {queueName: "client.tx.consumer.close.queue"});
+    check consumer->close();
+    Error? result = consumer->'commit();
+    test:assertTrue(result is Error, "commit after close should return an Error, not panic");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 22: A transacted consumer's close() is idempotent (symmetric with test
+// 19, for MessageConsumer).
+// ─────────────────────────────────────────────────────────────────────────────
+
+@test:Config {
+    groups: ["client", "transaction"]
+}
+isolated function testClientConsumerTransactionDoubleCloseIdempotent() returns error? {
+    MessageConsumer consumer = check new (BROKER_URL,
+        ackMode = SESSION_TRANSACTED, destination = {queueName: "client.tx.consumer.doubleclose.queue"});
+    check consumer->close();
+    // Second close: () or Error are both acceptable; what matters is no panic.
+    do { check consumer->close(); } on fail { }
+}
