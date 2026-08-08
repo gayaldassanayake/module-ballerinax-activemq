@@ -70,8 +70,14 @@ echo "11. Extracting client private key..."
 openssl pkcs12 -in client-keystore.p12 -passin pass:password \
     -nodes -nocerts -out client.key
 
+# 12. Keep JKS-format copies of the client keystore/truststore too (for JKS-format tests),
+# alongside the PKCS12 copies generated above.
+echo "12. Keeping JKS copies of the client keystore/truststore..."
+mv client-keystore.jks.tmp client-keystore.jks
+mv client-truststore.jks.tmp client-truststore.jks
+
 # Clean up temporary files
-rm -f *.tmp client-keystore.jks.tmp client-truststore.jks.tmp
+rm -f *.tmp
 
 echo ""
 echo "Certificate generation complete!"
@@ -85,6 +91,8 @@ echo ""
 echo "  Client (for Ballerina tests):"
 echo "    - client-keystore.p12 (PKCS12 keystore with client cert+key)"
 echo "    - client-truststore.p12 (PKCS12 truststore with server cert)"
+echo "    - client-keystore.jks (JKS keystore with client cert+key)"
+echo "    - client-truststore.jks (JKS truststore with server cert)"
 echo "    - client-cert.pem (PEM format certificate for CertKey tests)"
 echo "    - client.key (PEM format private key for CertKey tests)"
 echo ""

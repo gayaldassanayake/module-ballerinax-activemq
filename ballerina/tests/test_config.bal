@@ -57,9 +57,9 @@ const string CLIENT_CERT_PATH = "./tests/resources/secrets/client-cert.pem";
 const string CLIENT_KEY_PATH = "./tests/resources/secrets/client.key";
 const string CLIENT_KEYSTORE_PATH = "./tests/resources/secrets/client-keystore.p12";
 const string CLIENT_TRUSTSTORE_PATH = "./tests/resources/secrets/client-truststore.p12";
+const string CLIENT_KEYSTORE_JKS_PATH = "./tests/resources/secrets/client-keystore.jks";
+const string CLIENT_TRUSTSTORE_JKS_PATH = "./tests/resources/secrets/client-truststore.jks";
 const string KEYSTORE_PASSWORD = "password";
 
 // Timeouts
-const decimal POLLING_INTERVAL = 1.0;
-const decimal RECEIVE_TIMEOUT = 3.0;
 const decimal TEST_WAIT_TIME = 2.0;

@@ -108,11 +108,35 @@ public type PrefetchPolicy record {|
 
 # Configurations for secure communication with the ActiveMQ broker.
 #
-# + cert - Configurations associated with `crypto:TrustStore` or single certificate file that the client trusts
-# + key - Configurations associated with `crypto:KeyStore` or combination of certificate and private key of the client
+# + cert - Configurations associated with `TrustStore` or single certificate file that the client trusts
+# + key - Configurations associated with `KeyStore` or combination of certificate and private key of the client
 public type SecureSocket record {|
-    crypto:TrustStore|string cert;
-    crypto:KeyStore|CertKey key?;
+    TrustStore|string cert;
+    KeyStore|CertKey key?;
+|};
+
+# Java KeyStore format.
+public const JKS = "jks";
+# PKCS12 format.
+public const PKCS12 = "pkcs12";
+
+# Represents the supported SSL store formats.
+public type SslStoreFormat JKS|PKCS12;
+
+# Represents a trust store containing trusted CA certificates.
+#
+# + format - The format of the truststore file
+public type TrustStore record {|
+    *crypto:TrustStore;
+    SslStoreFormat format = JKS;
+|};
+
+# Represents a key store containing the client's private key and certificate.
+#
+# + format - The format of the keystore file
+public type KeyStore record {|
+    *crypto:KeyStore;
+    SslStoreFormat format = JKS;
 |};
 
 # Represents a combination of certificate, private key, and private key password if encrypted.

@@ -27,6 +27,7 @@ import java.io.FileInputStream;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -42,6 +43,7 @@ import static io.ballerina.lib.activemq.util.ActiveMQConstants.KEY_FILE;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.KEY_PASSWORD;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.KEY_STORE_PASSWORD;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.KEY_STORE_PATH;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.STORE_FORMAT;
 
 /**
  * SSL utility functions for ActiveMQ SSL/TLS configuration.
@@ -134,7 +136,8 @@ public final class SslUtils {
     private static TrustManagerFactory getTrustManagerFactory(BMap<BString, BString> trustStore) throws Exception {
         BString trustStorePath = trustStore.getStringValue(CRYPTO_TRUSTSTORE_PATH);
         BString trustStorePassword = trustStore.getStringValue(CRYPTO_TRUSTSTORE_PASSWORD);
-        KeyStore ts = getKeyStore(trustStorePath, trustStorePassword);
+        BString trustStoreFormat = trustStore.getStringValue(STORE_FORMAT);
+        KeyStore ts = getKeyStore(trustStorePath, trustStorePassword, trustStoreFormat);
         TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         tmf.init(ts);
         return tmf;
@@ -150,7 +153,8 @@ public final class SslUtils {
     private static KeyManagerFactory getKeyManagerFactory(BMap<BString, BString> keyStore) throws Exception {
         BString keyStorePath = keyStore.getStringValue(KEY_STORE_PATH);
         BString keyStorePassword = keyStore.getStringValue(KEY_STORE_PASSWORD);
-        KeyStore ks = getKeyStore(keyStorePath, keyStorePassword);
+        BString keyStoreFormat = keyStore.getStringValue(STORE_FORMAT);
+        KeyStore ks = getKeyStore(keyStorePath, keyStorePassword, keyStoreFormat);
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         kmf.init(ks, keyStorePassword.getValue().toCharArray());
         return kmf;
@@ -198,16 +202,14 @@ public final class SslUtils {
      *
      * @param path Path to the keystore file
      * @param password Password for the keystore
+     * @param format Keystore format (e.g. "jks", "pkcs12")
      * @return Loaded KeyStore
      * @throws Exception If keystore loading fails
      */
-    private static KeyStore getKeyStore(BString path, BString password) throws Exception {
+    private static KeyStore getKeyStore(BString path, BString password, BString format) throws Exception {
         try (FileInputStream is = new FileInputStream(path.getValue())) {
             char[] passphrase = password.getValue().toCharArray();
-            // Determine keystore type based on file extension
-            String keystoreType = path.getValue().endsWith(".p12") || path.getValue().endsWith(".pfx")
-                ? "PKCS12" : KeyStore.getDefaultType();
-            KeyStore ks = KeyStore.getInstance(keystoreType);
+            KeyStore ks = KeyStore.getInstance(format.getValue().toUpperCase(Locale.ROOT));
             ks.load(is, passphrase);
             return ks;
         }

@@ -67,6 +67,7 @@ public interface ActiveMQConstants {
     BString CRYPTO_TRUSTSTORE_PASSWORD = StringUtils.fromString("password");
     BString KEY_STORE_PATH = StringUtils.fromString("path");
     BString KEY_STORE_PASSWORD = StringUtils.fromString("password");
+    BString STORE_FORMAT = StringUtils.fromString("format");
 
     // Ballerina record/class names
     String BMESSAGE_NAME = "Message";

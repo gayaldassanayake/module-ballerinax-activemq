@@ -22,6 +22,8 @@ import ballerina/test;
 isolated int sslQueueReceivedMessageCount = 0;
 isolated int sslTopicReceivedMessageCount = 0;
 isolated int sslWithCertKeyReceivedMessageCount = 0;
+isolated int sslJksKeyStoreMsgCount = 0;
+isolated int sslTrustStoreRecordMsgCount = 0;
 
 @test:Config {
     groups: ["ssl", "secure"]
@@ -38,7 +40,8 @@ isolated function testSSLQueueWithKeyStore() returns error? {
             cert: SERVER_CERT_PATH,  // Use PEM file for server trust
             key: {
                 path: CLIENT_KEYSTORE_PATH,
-                password: KEYSTORE_PASSWORD
+                password: KEYSTORE_PASSWORD,
+                format: PKCS12
             }
         }
     });
@@ -81,7 +84,8 @@ isolated function testSSLTopicWithKeyStore() returns error? {
             cert: SERVER_CERT_PATH,  // Use PEM file for server trust
             key: {
                 path: CLIENT_KEYSTORE_PATH,
-                password: KEYSTORE_PASSWORD
+                password: KEYSTORE_PASSWORD,
+                format: PKCS12
             }
         }
     });
@@ -180,7 +184,8 @@ isolated function testSSLWithTransactions() returns error? {
             cert: SERVER_CERT_PATH,  // Use PEM file for server trust
             key: {
                 path: CLIENT_KEYSTORE_PATH,
-                password: KEYSTORE_PASSWORD
+                password: KEYSTORE_PASSWORD,
+                format: PKCS12
             }
         }
     });
@@ -232,7 +237,8 @@ isolated function testSSLWithClientAcknowledge() returns error? {
             cert: SERVER_CERT_PATH,  // Use PEM file for server trust
             key: {
                 path: CLIENT_KEYSTORE_PATH,
-                password: KEYSTORE_PASSWORD
+                password: KEYSTORE_PASSWORD,
+                format: PKCS12
             }
         }
     });
@@ -284,7 +290,8 @@ isolated function testSSLWithMessageSelector() returns error? {
             cert: SERVER_CERT_PATH,  // Use PEM file for server trust
             key: {
                 path: CLIENT_KEYSTORE_PATH,
-                password: KEYSTORE_PASSWORD
+                password: KEYSTORE_PASSWORD,
+                format: PKCS12
             }
         }
     });
@@ -337,7 +344,8 @@ isolated function testSSLWithDurableTopic() returns error? {
             cert: SERVER_CERT_PATH,  // Use PEM file for server trust
             key: {
                 path: CLIENT_KEYSTORE_PATH,
-                password: KEYSTORE_PASSWORD
+                password: KEYSTORE_PASSWORD,
+                format: PKCS12
             }
         }
     });
@@ -389,7 +397,8 @@ isolated function testSSLWithExclusiveConsumer() returns error? {
             cert: SERVER_CERT_PATH,  // Use PEM file for server trust
             key: {
                 path: CLIENT_KEYSTORE_PATH,
-                password: KEYSTORE_PASSWORD
+                password: KEYSTORE_PASSWORD,
+                format: PKCS12
             }
         }
     });
@@ -442,7 +451,8 @@ isolated function testSSLWithAuthentication() returns error? {
             cert: SERVER_CERT_PATH,  // Use PEM file for server trust
             key: {
                 path: CLIENT_KEYSTORE_PATH,
-                password: KEYSTORE_PASSWORD
+                password: KEYSTORE_PASSWORD,
+                format: PKCS12
             }
         }
     });
@@ -473,4 +483,109 @@ isolated function testSSLWithAuthentication() returns error? {
         count = sslAuthMsgCount;
     }
     test:assertEquals(count, 1, "SSL auth queue did not receive the expected number of messages");
+}
+
+@test:Config {
+    groups: ["ssl", "secure"]
+}
+isolated function testSSLQueueWithJksKeyStore() returns error? {
+    // Reset counter for this test
+    lock {
+        sslJksKeyStoreMsgCount = 0;
+    }
+
+    // Create listener with SSL configuration using a JKS-format KeyStore. Prior to task 15's
+    // fix, a plain .jks file (no explicit format) would fail to load on JDKs whose default
+    // KeyStore type isn't JKS.
+    Listener sslListener = check new (BROKER_SSL_URL, {
+        secureSocket: {
+            cert: SERVER_CERT_PATH,  // Use PEM file for server trust
+            key: {
+                path: CLIENT_KEYSTORE_JKS_PATH,
+                password: KEYSTORE_PASSWORD,
+                format: JKS
+            }
+        }
+    });
+
+    Service consumerSvc = @ServiceConfig {
+        queueName: "ssl-jks-keystore-queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+            lock {
+                sslJksKeyStoreMsgCount += 1;
+            }
+        }
+    };
+
+    check sslListener.attach(consumerSvc, "ssl-jks-keystore-service");
+    check sslListener.start();
+
+    // Give listener time to initialize SSL connection and start consuming
+    runtime:sleep(1);
+
+    // Send message using test producer with SSL URL
+    check sendToQueue(BROKER_SSL_URL, "ssl-jks-keystore-queue", "Hello from SSL queue with JKS keystore");
+
+    runtime:sleep(2);
+
+    int count = 0;
+    lock {
+        count = sslJksKeyStoreMsgCount;
+    }
+    test:assertEquals(count, 1, "SSL JKS keystore queue did not receive the expected number of messages");
+}
+
+@test:Config {
+    groups: ["ssl", "secure"]
+}
+isolated function testSSLWithTrustStoreRecordConfiguration() returns error? {
+    // Reset counter for this test
+    lock {
+        sslTrustStoreRecordMsgCount = 0;
+    }
+
+    // Create listener with SSL configuration using the record form of `cert` (a TrustStore),
+    // instead of the bare PEM-string form every other test in this file uses.
+    Listener sslListener = check new (BROKER_SSL_URL, {
+        secureSocket: {
+            cert: {
+                path: CLIENT_TRUSTSTORE_PATH,
+                password: KEYSTORE_PASSWORD,
+                format: PKCS12
+            },
+            key: {
+                path: CLIENT_KEYSTORE_PATH,
+                password: KEYSTORE_PASSWORD,
+                format: PKCS12
+            }
+        }
+    });
+
+    Service consumerSvc = @ServiceConfig {
+        queueName: "ssl-truststore-record-queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+            lock {
+                sslTrustStoreRecordMsgCount += 1;
+            }
+        }
+    };
+
+    check sslListener.attach(consumerSvc, "ssl-truststore-record-service");
+    check sslListener.start();
+
+    // Give listener time to initialize SSL connection and start consuming
+    runtime:sleep(1);
+
+    // Send message using test producer with SSL URL
+    check sendToQueue(BROKER_SSL_URL, "ssl-truststore-record-queue", "Hello from SSL queue with TrustStore record");
+
+    runtime:sleep(2);
+
+    int count = 0;
+    lock {
+        count = sslTrustStoreRecordMsgCount;
+    }
+    test:assertEquals(count, 1, "SSL TrustStore-record queue did not receive the expected number of messages");
 }
