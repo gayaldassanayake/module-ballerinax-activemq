@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Extended typed payload data binding to `Listener`/`Service`'s `onMessage`: its parameter can now
+  narrow `Message`'s `payload` field to a specific type (e.g.
+  `record {|*activemq:Message; string payload;|}`), the same way `MessageConsumer.receive()`
+  already worked. A plain `activemq:Message` parameter keeps its existing behavior unchanged. A
+  payload that can't be converted to the requested type is routed to `onError` instead of being
+  silently dropped.
+
 ### Changed
 - Moved the test-only `TestProducer` native helper out of the released `activemq-native` jar into a
   separate `testOnly`-scoped jar, so test utilities no longer ship in the production artifact.

@@ -18,11 +18,13 @@
 
 package io.ballerina.lib.activemq.listener;
 
+import io.ballerina.lib.activemq.util.ActiveMQDatabindingException;
 import io.ballerina.lib.activemq.util.MessageMapper;
 import io.ballerina.runtime.api.Runtime;
 import io.ballerina.runtime.api.concurrent.StrandMetadata;
 import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.types.Parameter;
+import io.ballerina.runtime.api.types.RecordType;
 import io.ballerina.runtime.api.types.RemoteMethodType;
 import io.ballerina.runtime.api.types.Type;
 import io.ballerina.runtime.api.types.TypeTags;
@@ -105,16 +107,23 @@ public class MessageDispatcher {
             onError(bError);
         } catch (JMSException e) {
             onError(e);
+        } catch (ActiveMQDatabindingException e) {
+            onError(e);
         }
     }
 
     /**
      * Prepares the parameter array for invoking the Ballerina onMessage method. Matches parameters
-     * by type (Caller object or Message record) and populates them accordingly.
+     * by type (Caller object or Message record) and populates them accordingly. A plain
+     * {@code activemq:Message} parameter keeps today's default conversion unchanged; a parameter
+     * that narrows {@code Message}'s {@code payload} field (validated at attach time by
+     * {@code Service.validateService}) is converted via the same typed payload binding
+     * {@code MessageConsumer.receive()} uses.
      *
      * @param message  the JMS message
      * @return array of arguments for the Ballerina method invocation
      * @throws JMSException if message conversion fails
+     * @throws ActiveMQDatabindingException if a narrowed payload type can't be bound from this message
      */
     private Object[] getOnMessageParams(Message message) throws JMSException {
         Parameter[] parameters = this.nativeService.getOnMessageMethod().getParameters();
@@ -127,7 +136,9 @@ public class MessageDispatcher {
                     args[idx++] = getCaller();
                     break;
                 case TypeTags.RECORD_TYPE_TAG:
-                    args[idx++] = MessageMapper.toBallerinaMessage(message);
+                    args[idx++] = TypeUtils.isSameType(Service.MSG_TYPE, referredType)
+                            ? MessageMapper.toBallerinaMessage(message)
+                            : MessageMapper.toBallerinaMessage(message, (RecordType) referredType);
                     break;
                 default:
                     throw new IllegalStateException("Unsupported parameter type: " + referredType);
@@ -165,7 +176,8 @@ public class MessageDispatcher {
                     t.printStackTrace();
                     return;
                 }
-                BError error = createError("Error", "Failed to fetch the message", t);
+                String message = t.getMessage() != null ? t.getMessage() : "Failed to fetch the message";
+                BError error = createError("Error", message, t);
                 boolean isConcurrentSafe = nativeService.isOnErrorMethodIsolated();
                 StrandMetadata metadata = new StrandMetadata(isConcurrentSafe, null);
                 Object result = ballerinaRuntime.callMethod(

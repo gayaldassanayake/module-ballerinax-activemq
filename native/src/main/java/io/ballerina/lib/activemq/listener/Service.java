@@ -20,7 +20,9 @@ package io.ballerina.lib.activemq.listener;
 
 import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
+import io.ballerina.runtime.api.types.Field;
 import io.ballerina.runtime.api.types.Parameter;
+import io.ballerina.runtime.api.types.RecordType;
 import io.ballerina.runtime.api.types.RemoteMethodType;
 import io.ballerina.runtime.api.types.ServiceType;
 import io.ballerina.runtime.api.types.Type;
@@ -31,12 +33,14 @@ import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BObject;
 import io.ballerina.runtime.api.values.BString;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.BCALLER_NAME;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.BMESSAGE_NAME;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.MESSAGE_PAYLOAD;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.ON_ERROR_METHOD;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.ON_MESSAGE_METHOD;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.QUEUE_NAME;
@@ -53,7 +57,7 @@ import static io.ballerina.runtime.api.constants.RuntimeConstants.VERSION_SEPARA
  * @since 0.1.0
  */
 public class Service {
-    private static final Type MSG_TYPE = ValueCreator.createRecordValue(getModule(), BMESSAGE_NAME)
+    static final Type MSG_TYPE = ValueCreator.createRecordValue(getModule(), BMESSAGE_NAME)
             .getType();
     private static final Type CALLER_TYPE = ValueCreator.createObjectValue(getModule(), BCALLER_NAME).getOriginalType();
     private static final Type ERROR_TYPE = TypeCreator.createErrorType("Error", getModule());
@@ -126,7 +130,7 @@ public class Service {
         Parameter message = null;
         for (Parameter parameter : parameters) {
             Type parameterType = TypeUtils.getReferredType(parameter.type);
-            if (TypeUtils.isSameType(MSG_TYPE, parameterType)) {
+            if (isMessageCompatibleType(parameterType)) {
                 message = parameter;
                 continue;
             }
@@ -134,12 +138,42 @@ public class Service {
                 continue;
             }
             throw createError("Error",
-                    "onMessage method parameters must be of type 'activemq:Message' or 'activemq:Caller'.");
+                    "onMessage method parameters must be of type 'activemq:Message' (or a record type that " +
+                            "includes it, narrowing 'payload') or 'activemq:Caller'.");
         }
 
         if (Objects.isNull(message)) {
             throw createError("Error", "Required parameter 'activemq:Message' cannot be found.");
         }
+    }
+
+    /**
+     * Checks whether {@code candidateType} can be populated from a JMS message the same way
+     * {@code activemq:Message} can — either it's exactly {@code activemq:Message}, or a record with
+     * the same fields (matching {@code record {|*Message; ...|}} type inclusion), where only the
+     * {@code payload} field's type is allowed to differ so a caller can narrow it to a specific
+     * type, mirroring {@code MessageConsumer.receive()}'s typed payload binding.
+     */
+    private static boolean isMessageCompatibleType(Type candidateType) {
+        if (TypeUtils.isSameType(MSG_TYPE, candidateType)) {
+            return true;
+        }
+        if (!(candidateType instanceof RecordType candidateRecord) || !(MSG_TYPE instanceof RecordType msgRecord)) {
+            return false;
+        }
+        Map<String, Field> candidateFields = candidateRecord.getFields();
+        for (Map.Entry<String, Field> entry : msgRecord.getFields().entrySet()) {
+            if (MESSAGE_PAYLOAD.getValue().equals(entry.getKey())) {
+                continue;
+            }
+            Field candidateField = candidateFields.get(entry.getKey());
+            if (candidateField == null || !TypeUtils.isSameType(
+                    TypeUtils.getReferredType(entry.getValue().getFieldType()),
+                    TypeUtils.getReferredType(candidateField.getFieldType()))) {
+                return false;
+            }
+        }
+        return candidateFields.containsKey(MESSAGE_PAYLOAD.getValue());
     }
 
     private static void validateOnErrorMethod(RemoteMethodType onErrorMethod) {

@@ -144,6 +144,21 @@ service activemq:Service on mqListener {
 
 Use `topicName` instead of `queueName` to subscribe to a JMS topic.
 
+`onMessage`'s parameter can also narrow `Message`'s `payload` field to a specific type, the same
+way `MessageConsumer.receive()` does:
+
+```ballerina
+service activemq:Service on mqListener {
+    remote function onMessage(record {|*activemq:Message; string payload;|} message) returns error? {
+        log:printInfo("Processing order: " + message.payload);
+    }
+}
+```
+
+The `payload` field's declared type determines the conversion — see [section 4](#4-receive-a-message-from-a-queue)
+for the full set of supported combinations. A payload that can't be converted to the requested
+type is routed to `onError` (if defined) instead of being silently dropped.
+
 ### 6. Publish to a topic
 
 Use a `Topic` destination when calling `send`:

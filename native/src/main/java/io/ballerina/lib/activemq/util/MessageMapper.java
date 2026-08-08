@@ -139,7 +139,21 @@ public class MessageMapper {
      */
     public static BMap<BString, Object> toBallerinaMessage(Message message, BTypedesc bTypedesc)
             throws JMSException {
-        RecordType recordType = getRecordType(bTypedesc);
+        return toBallerinaMessage(message, resolveRecordType(bTypedesc.getDescribingType()));
+    }
+
+    /**
+     * Converts a JMS message to a Ballerina message record of the given shape, extracting the
+     * payload as the type requested via the record's {@code payload} field (falling back to the
+     * JMS-message-appropriate representation when that field's declared type is {@code anydata}).
+     * Used both by {@link #toBallerinaMessage(Message, BTypedesc)} (the {@code receive()} path) and
+     * by the {@code Listener}'s dispatcher when a service's {@code onMessage} parameter narrows
+     * {@code activemq:Message}'s {@code payload} field to a specific type.
+     *
+     * @throws ActiveMQDatabindingException if the payload cannot be converted to the requested type
+     */
+    public static BMap<BString, Object> toBallerinaMessage(Message message, RecordType recordType)
+            throws JMSException {
         BMap<BString, Object> result = ValueCreator.createRecordValue(recordType);
         populateHeaders(result, message);
 
@@ -359,8 +373,7 @@ public class MessageMapper {
         return ValueUtils.convert(JsonUtils.parse(jsonString), payloadType);
     }
 
-    private static RecordType getRecordType(BTypedesc bTypedesc) {
-        Type describingType = bTypedesc.getDescribingType();
+    private static RecordType resolveRecordType(Type describingType) {
         if (describingType.isReadOnly()) {
             return (RecordType) TypeUtils.getReferredType(
                     ((IntersectionType) describingType).getConstituentTypes().get(0));
