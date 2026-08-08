@@ -11,6 +11,8 @@ services:
       - ACTIVEMQ_ADMIN_PASSWORD=admin
       - ACTIVEMQ_MIN_MEMORY=512
       - ACTIVEMQ_MAX_MEMORY=2048
+    volumes:
+      - ./configs/activemq.xml:/opt/apache-activemq/conf/activemq.xml:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -f -u admin:admin http://localhost:8161/admin/ || exit 1"]
       interval: 10s

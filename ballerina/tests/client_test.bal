@@ -432,13 +432,12 @@ isolated function testClientTransactionCloseRollsBack() returns error? {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 15: Scheduled delivery — fields are accepted without error
-// (Full delay verification requires schedulerSupport="true" in activemq.xml)
+// Test 15: Scheduled delivery — the message is withheld until the scheduled delay elapses
+// (requires schedulerSupport="true" in the test broker's activemq.xml)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
-    groups: ["client", "scheduler"],
-    enable: false
+    groups: ["client", "scheduler"]
 }
 function testClientScheduledDelivery() returns error? {
     MessageProducer producer = check new (BROKER_URL);
