@@ -31,7 +31,7 @@ isolated function testQueueService() returns error? {
         queueName: "service-test-queue"
     } service object {
         remote function onMessage(Message message) returns error? {
-            string msg = check string:fromBytes(message.payload);
+            string msg = check string:fromBytes(check message.payload.ensureType());
             lock {
                 queueServiceReceivedMessageCount += 1;
             }

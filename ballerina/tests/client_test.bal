@@ -36,7 +36,7 @@ isolated function testClientSendAndReceiveFromQueue() returns error? {
     check producer->close();
 
     MessageConsumer consumer = check new (BROKER_URL, destination = {queueName: "client.test.basic.queue"});
-    Message? received = check consumer->receive(5000);
+    record {|*Message; byte[] payload;|}? received = check consumer->receive(5000);
     check consumer->close();
     test:assertTrue(received is Message, "should receive the sent message");
     if received is Message {
@@ -79,7 +79,7 @@ isolated function testClientMultipleMessages() returns error? {
 
     MessageConsumer consumer = check new (BROKER_URL, destination = {queueName: "client.test.multi.queue"});
     string[] received = [];
-    Message? msg = check consumer->receive(3000);
+    record {|*Message; byte[] payload;|}? msg = check consumer->receive(3000);
     while msg is Message {
         received.push(check string:fromBytes(msg.payload));
         msg = check consumer->receive(2000);
@@ -318,7 +318,7 @@ isolated function testClientReceiveWithSelector() returns error? {
     // Receive with selector — should get only APAC even though EMEA arrived first.
     MessageConsumer apacConsumer = check new (BROKER_URL,
         destination = {queueName: "client.test.selector.queue"}, messageSelector = "region = 'APAC'");
-    Message? apacMsg = check apacConsumer->receive(5000);
+    record {|*Message; byte[] payload;|}? apacMsg = check apacConsumer->receive(5000);
     check apacConsumer->close();
 
     // Drain the EMEA message that was skipped.

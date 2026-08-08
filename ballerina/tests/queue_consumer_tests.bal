@@ -32,7 +32,7 @@ function testItReceiveTextMessageFromQueue() returns error? {
 
     MessageConsumer consumer = check new (brokerUrl,
         username = username, password = password, destination = {queueName: "it.cons.text.queue"});
-    Message? received = check consumer->receive(5000);
+    record {|*Message; byte[] payload;|}? received = check consumer->receive(5000);
     check consumer->close();
     test:assertTrue(received is Message, "should receive the sent TextMessage");
     if received is Message {

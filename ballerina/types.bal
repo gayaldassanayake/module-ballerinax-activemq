@@ -175,7 +175,10 @@ public type CertKey record {|
 # + format - Format identifier of the message payload (e.g., "text", "binary", "json")
 # + properties - Application-specific custom properties attached to the message. Values are
 #                restricted to the types the JMS specification allows as message properties
-# + payload - The message content as a byte array
+# + payload - The message content. On send, the runtime type determines the JMS message produced
+#             (`string` → `TextMessage`, `byte[]` → `BytesMessage`, `map`/record → `MapMessage`).
+#             On receive, defaults to the JMS-message-appropriate representation unless narrowed
+#             via `MessageConsumer.receive`'s `typedesc<Message> T` parameter
 # + scheduledDelay - Delay in milliseconds before the broker first delivers the message.
 #                   Requires `schedulerSupport="true"` in the ActiveMQ broker configuration.
 # + scheduledPeriod - Period in milliseconds between successive redeliveries. Use together
@@ -200,7 +203,7 @@ public type Message record {|
     string userId?;
     string format?;
     map<Property> properties?;
-    byte[] payload;
+    anydata payload;
     int scheduledDelay?;
     int scheduledPeriod?;
     int scheduledRepeat?;

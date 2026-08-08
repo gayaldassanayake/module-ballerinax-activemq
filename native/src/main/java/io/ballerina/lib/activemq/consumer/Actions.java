@@ -18,11 +18,13 @@
 
 package io.ballerina.lib.activemq.consumer;
 
+import io.ballerina.lib.activemq.util.ActiveMQDatabindingException;
 import io.ballerina.lib.activemq.util.ConnectionFactoryUtils;
 import io.ballerina.lib.activemq.util.MessageMapper;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BObject;
 import io.ballerina.runtime.api.values.BString;
+import io.ballerina.runtime.api.values.BTypedesc;
 import jakarta.jms.Connection;
 import jakarta.jms.Destination;
 import jakarta.jms.JMSException;
@@ -54,13 +56,16 @@ public final class Actions {
         final Connection connection;
         final Session session;
         final MessageConsumer consumer;
+        final Destination destination;
         final boolean transacted;
         volatile boolean closed = false;
 
-        ConsumerState(Connection connection, Session session, MessageConsumer consumer, boolean transacted) {
+        ConsumerState(Connection connection, Session session, MessageConsumer consumer, Destination destination,
+                boolean transacted) {
             this.connection = connection;
             this.session = session;
             this.consumer = consumer;
+            this.destination = destination;
             this.transacted = transacted;
         }
     }
@@ -79,7 +84,7 @@ public final class Actions {
             MessageConsumer consumer = config.messageSelector() != null
                     ? session.createConsumer(destination, config.messageSelector())
                     : session.createConsumer(destination);
-            ConsumerState state = new ConsumerState(connection, session, consumer, transacted);
+            ConsumerState state = new ConsumerState(connection, session, consumer, destination, transacted);
             bConsumer.addNativeData(NATIVE_STATE, state);
         } catch (Exception e) {
             return createError(ACTIVEMQ_ERROR, "Failed to initialize consumer: " + e.getMessage(), e);
@@ -87,18 +92,37 @@ public final class Actions {
         return null;
     }
 
-    public static Object receive(BObject bConsumer, long timeoutMs) {
+    public static Object receive(BObject bConsumer, long timeoutMs, Object messageSelector, BTypedesc bTypedesc) {
         return execute(bConsumer, "receive message", state -> {
-            Message jmsMsg = state.consumer.receive(timeoutMs);
-            return jmsMsg == null ? null : MessageMapper.toBallerinaMessage(jmsMsg);
+            Message jmsMsg = receiveWithOptionalSelector(state, messageSelector, timeoutMs, false);
+            return jmsMsg == null ? null : MessageMapper.toBallerinaMessage(jmsMsg, bTypedesc);
         });
     }
 
-    public static Object receiveNoWait(BObject bConsumer) {
+    public static Object receiveNoWait(BObject bConsumer, Object messageSelector, BTypedesc bTypedesc) {
         return execute(bConsumer, "receive message", state -> {
-            Message jmsMsg = state.consumer.receiveNoWait();
-            return jmsMsg == null ? null : MessageMapper.toBallerinaMessage(jmsMsg);
+            Message jmsMsg = receiveWithOptionalSelector(state, messageSelector, 0, true);
+            return jmsMsg == null ? null : MessageMapper.toBallerinaMessage(jmsMsg, bTypedesc);
         });
+    }
+
+    /**
+     * Receives using the persistent consumer, unless {@code messageSelector} overrides it for this
+     * call — in which case a temporary consumer scoped to that selector is created, used once, and
+     * closed. Both paths run inside {@code execute}'s {@code synchronized (state)} block, so this
+     * never races with other operations on the same session.
+     */
+    private static Message receiveWithOptionalSelector(ConsumerState state, Object messageSelector,
+            long timeoutMs, boolean noWait) throws JMSException {
+        if (!(messageSelector instanceof BString bSelector) || bSelector.getValue().isEmpty()) {
+            return noWait ? state.consumer.receiveNoWait() : state.consumer.receive(timeoutMs);
+        }
+        MessageConsumer temp = state.session.createConsumer(state.destination, bSelector.getValue());
+        try {
+            return noWait ? temp.receiveNoWait() : temp.receive(timeoutMs);
+        } finally {
+            temp.close();
+        }
     }
 
     /**
@@ -184,6 +208,8 @@ public final class Actions {
                 return action.run(state);
             } catch (JMSException e) {
                 return createError(ACTIVEMQ_ERROR, String.format("Failed to %s: %s", operation, e.getMessage()), e);
+            } catch (ActiveMQDatabindingException e) {
+                return createError(ACTIVEMQ_ERROR, e.getMessage(), e);
             }
         }
     }

@@ -90,8 +90,9 @@ function testAllMessageFields() returns error? {
         Queue replyTo = <Queue>msg.replyTo;
         test:assertEquals(replyTo.queueName, "message-fields-test-queue");
 
-        test:assertTrue(msg.payload.length() > 0, "payload should be present");
-        string payloadStr = check string:fromBytes(msg.payload);
+        byte[] payloadBytes = check msg.payload.ensureType();
+        test:assertTrue(payloadBytes.length() > 0, "payload should be present");
+        string payloadStr = check string:fromBytes(payloadBytes);
         test:assertEquals(payloadStr, "Test message with all headers", "payload content should match");
     }
     check messageFieldsListener.detach(consumerSvc);

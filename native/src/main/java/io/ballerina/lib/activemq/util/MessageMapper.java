@@ -20,17 +20,29 @@ package io.ballerina.lib.activemq.util;
 
 import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
+import io.ballerina.runtime.api.types.ArrayType;
+import io.ballerina.runtime.api.types.IntersectionType;
 import io.ballerina.runtime.api.types.MapType;
 import io.ballerina.runtime.api.types.PredefinedTypes;
+import io.ballerina.runtime.api.types.RecordType;
+import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.TypeTags;
 import io.ballerina.runtime.api.types.UnionType;
+import io.ballerina.runtime.api.utils.JsonUtils;
 import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.api.utils.TypeUtils;
+import io.ballerina.runtime.api.utils.ValueUtils;
+import io.ballerina.runtime.api.utils.XmlUtils;
 import io.ballerina.runtime.api.values.BArray;
+import io.ballerina.runtime.api.values.BError;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
+import io.ballerina.runtime.api.values.BTypedesc;
 import jakarta.jms.BytesMessage;
 import jakarta.jms.DeliveryMode;
 import jakarta.jms.Destination;
 import jakarta.jms.JMSException;
+import jakarta.jms.MapMessage;
 import jakarta.jms.Message;
 import jakarta.jms.Queue;
 import jakarta.jms.Session;
@@ -92,7 +104,55 @@ public class MessageMapper {
 
     public static BMap<BString, Object> toBallerinaMessage(Message message) throws JMSException {
         BMap<BString, Object> result = ValueCreator.createRecordValue(getModule(), BMESSAGE_NAME);
+        populateHeaders(result, message);
 
+        // Payload - convert byte arrays to Ballerina arrays
+        if (message instanceof TextMessage) {
+            byte[] payload = ((TextMessage) message).getText().getBytes(StandardCharsets.UTF_8);
+            result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(payload));
+            result.put(FORMAT_FIELD, TEXT);
+
+        } else if (message instanceof BytesMessage bytesMessage) {
+            byte[] payload = new byte[(int) bytesMessage.getBodyLength()];
+            bytesMessage.readBytes(payload);
+            result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(payload));
+            result.put(FORMAT_FIELD, BINARY);
+
+        } else {
+            // fallback: try getBody
+            byte[] fallback;
+            fallback = message.getBody(String.class).getBytes(StandardCharsets.UTF_8);
+            result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(fallback));
+            result.put(FORMAT_FIELD, UNKNOWN);
+        }
+        result.addNativeData(NATIVE_MESSAGE, message);
+        return result;
+    }
+
+    /**
+     * Converts a JMS message to a Ballerina message record of the shape described by
+     * {@code bTypedesc}, extracting the payload as the type requested via the record's
+     * {@code payload} field (falling back to the JMS-message-appropriate representation when that
+     * field's declared type is {@code anydata}, i.e. the caller didn't narrow it).
+     *
+     * @throws ActiveMQDatabindingException if the payload cannot be converted to the requested type
+     */
+    public static BMap<BString, Object> toBallerinaMessage(Message message, BTypedesc bTypedesc)
+            throws JMSException {
+        RecordType recordType = getRecordType(bTypedesc);
+        BMap<BString, Object> result = ValueCreator.createRecordValue(recordType);
+        populateHeaders(result, message);
+
+        Type payloadType = TypeUtils.getReferredType(recordType.getFields().get(MESSAGE_PAYLOAD.getValue())
+                .getFieldType());
+        result.put(MESSAGE_PAYLOAD, getPayloadWithIntendedType(message, payloadType));
+        result.put(FORMAT_FIELD, resolveFormat(message));
+        result.addNativeData(NATIVE_MESSAGE, message);
+        return result;
+    }
+
+    /** Populates every Message field except {@code payload}/{@code format}, shared by both receive paths. */
+    private static void populateHeaders(BMap<BString, Object> result, Message message) throws JMSException {
         // Standard JMS message headers
         result.put(MESSAGE_ID, StringUtils.fromString(message.getJMSMessageID()));
 
@@ -176,28 +236,136 @@ public class MessageMapper {
             }
         }
         result.put(MESSAGE_PROPERTIES, props);
+    }
 
-        // Payload - convert byte arrays to Ballerina arrays
+    private static BString resolveFormat(Message message) {
         if (message instanceof TextMessage) {
-            byte[] payload = ((TextMessage) message).getText().getBytes(StandardCharsets.UTF_8);
-            result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(payload));
-            result.put(FORMAT_FIELD, TEXT);
-
-        } else if (message instanceof BytesMessage bytesMessage) {
-            byte[] payload = new byte[(int) bytesMessage.getBodyLength()];
-            bytesMessage.readBytes(payload);
-            result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(payload));
-            result.put(FORMAT_FIELD, BINARY);
-
-        } else {
-            // fallback: try getBody
-            byte[] fallback;
-            fallback = message.getBody(String.class).getBytes(StandardCharsets.UTF_8);
-            result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(fallback));
-            result.put(FORMAT_FIELD, UNKNOWN);
+            return TEXT;
         }
-        result.addNativeData(NATIVE_MESSAGE, message);
-        return result;
+        if (message instanceof BytesMessage) {
+            return BINARY;
+        }
+        return UNKNOWN;
+    }
+
+    private static Object getPayloadWithIntendedType(Message message, Type payloadType) throws JMSException {
+        int typeTag = payloadType.getTag();
+        try {
+            if (message instanceof TextMessage textMessage) {
+                return getPayloadFromTextMessage(textMessage, payloadType, typeTag);
+            }
+            if (message instanceof MapMessage mapMessage) {
+                return getPayloadFromMapMessage(mapMessage, payloadType, typeTag);
+            }
+            if (message instanceof BytesMessage bytesMessage) {
+                return getPayloadFromBytesMessage(bytesMessage, payloadType, typeTag);
+            }
+        } catch (BError bError) {
+            throw new ActiveMQDatabindingException("Data binding failed: " + bError.getDetails());
+        }
+        // ObjectMessage/StreamMessage: only the untyped/default case falls back to today's behavior;
+        // a specific requested type has no dispatch logic to honor it.
+        if (typeTag == TypeTags.ANYDATA_TAG) {
+            byte[] fallback = message.getBody(String.class).getBytes(StandardCharsets.UTF_8);
+            return ValueCreator.createArrayValue(fallback);
+        }
+        throw new ActiveMQDatabindingException(String.format(
+                "Data binding failed: Unsupported message type '%s' for typed payload binding",
+                message.getClass().getSimpleName()));
+    }
+
+    private static Object getPayloadFromTextMessage(TextMessage message, Type payloadType, int typeTag)
+            throws JMSException {
+        if (typeTag == TypeTags.ANYDATA_TAG || typeTag == TypeTags.STRING_TAG) {
+            return StringUtils.fromString(message.getText());
+        }
+        if (typeTag == TypeTags.XML_TAG) {
+            return XmlUtils.parse(message.getText());
+        }
+        throw new ActiveMQDatabindingException(
+                String.format("Data binding failed: Cannot bind TextMessage to type '%s'. "
+                        + "Expected 'string' or 'xml'", payloadType));
+    }
+
+    private static Object getPayloadFromMapMessage(MapMessage message, Type payloadType, int typeTag)
+            throws JMSException {
+        if (typeTag != TypeTags.ANYDATA_TAG && typeTag != TypeTags.MAP_TAG && typeTag != TypeTags.RECORD_TYPE_TAG) {
+            throw new ActiveMQDatabindingException(
+                    String.format("Data binding failed: Cannot bind MapMessage to type '%s'. "
+                            + "Expected 'map<activemq:Property>'", payloadType));
+        }
+        BMap<BString, Object> payload = ValueCreator.createMapValue(BALLERINA_PROPERTY_TYPE);
+        Enumeration<?> mapNames = message.getMapNames();
+        while (mapNames.hasMoreElements()) {
+            String key = (String) mapNames.nextElement();
+            Object value = message.getObject(key);
+            BString bKey = StringUtils.fromString(key);
+            if (value instanceof String s) {
+                payload.put(bKey, StringUtils.fromString(s));
+            } else if (value instanceof Integer i) {
+                payload.put(bKey, (long) i);
+            } else if (value instanceof Long l) {
+                payload.put(bKey, l);
+            } else if (value instanceof Short sh) {
+                payload.put(bKey, (long) sh);
+            } else if (value instanceof Byte b) {
+                payload.put(bKey, b & 0xFF);
+            } else if (value instanceof Float f) {
+                payload.put(bKey, (double) f);
+            } else if (value instanceof Double d) {
+                payload.put(bKey, d);
+            } else if (value instanceof Boolean b) {
+                payload.put(bKey, b);
+            } else if (value != null) {
+                LOGGER.warning(() -> String.format(
+                        "Dropped MapMessage entry '%s' of unsupported type '%s' - value cannot be represented as "
+                                + "an activemq:Property (boolean, int, byte, float, or string)",
+                        key, value.getClass().getSimpleName()));
+            }
+        }
+        if (typeTag == TypeTags.RECORD_TYPE_TAG) {
+            return ValueUtils.convert(payload, payloadType);
+        }
+        return payload;
+    }
+
+    private static Object getPayloadFromBytesMessage(BytesMessage message, Type payloadType, int typeTag)
+            throws JMSException {
+        if (typeTag == TypeTags.STRING_TAG || typeTag == TypeTags.XML_TAG) {
+            throw new ActiveMQDatabindingException(
+                    String.format("Data binding failed: Cannot bind BytesMessage to type '%s'. "
+                            + "Use TextMessage for string/xml payloads", payloadType));
+        }
+        if (typeTag == TypeTags.MAP_TAG || typeTag == TypeTags.RECORD_TYPE_TAG) {
+            throw new ActiveMQDatabindingException(
+                    String.format("Data binding failed: Cannot bind BytesMessage to type '%s'. "
+                            + "Use MapMessage for map/record payloads", payloadType));
+        }
+
+        byte[] bytes = new byte[(int) message.getBodyLength()];
+        message.readBytes(bytes);
+
+        if (typeTag == TypeTags.ANYDATA_TAG) {
+            return ValueCreator.createArrayValue(bytes);
+        }
+        if (typeTag == TypeTags.ARRAY_TAG
+                && TypeUtils.getReferredType(((ArrayType) payloadType).getElementType()).getTag()
+                        == TypeTags.BYTE_TAG) {
+            return ValueCreator.createArrayValue(bytes);
+        }
+
+        // For other types, treat the bytes as a JSON string and convert.
+        String jsonString = new String(bytes, StandardCharsets.UTF_8);
+        return ValueUtils.convert(JsonUtils.parse(jsonString), payloadType);
+    }
+
+    private static RecordType getRecordType(BTypedesc bTypedesc) {
+        Type describingType = bTypedesc.getDescribingType();
+        if (describingType.isReadOnly()) {
+            return (RecordType) TypeUtils.getReferredType(
+                    ((IntersectionType) describingType).getConstituentTypes().get(0));
+        }
+        return (RecordType) describingType;
     }
 
     /** Converts a JMS destination to the public Ballerina Destination record. */
@@ -244,14 +412,13 @@ public class MessageMapper {
     }
 
     /**
-     * Converts a Ballerina Message record to a JMS BytesMessage, mapping all relevant headers,
-     * custom properties, and ActiveMQ scheduler properties when present.
+     * Converts a Ballerina Message record to a JMS message, mapping all relevant headers, custom
+     * properties, and ActiveMQ scheduler properties when present. The payload's runtime type
+     * determines the kind of JMS message produced — see {@link #createOutgoingMessage}.
      */
     @SuppressWarnings("unchecked")
     public static Message toJmsMessage(Session session, BMap<BString, Object> bMsg) throws JMSException {
-        BArray payload = (BArray) bMsg.get(MESSAGE_PAYLOAD);
-        BytesMessage jmsMsg = session.createBytesMessage();
-        jmsMsg.writeBytes(payload.getBytes());
+        Message jmsMsg = createOutgoingMessage(session, bMsg.get(MESSAGE_PAYLOAD));
 
         Object corrId = bMsg.get(CORRELATION_ID);
         if (corrId instanceof BString bCorrId) {
@@ -310,6 +477,56 @@ public class MessageMapper {
         }
 
         return jmsMsg;
+    }
+
+    /**
+     * Creates a JMS message of the kind appropriate for the payload's runtime type: a {@code string}
+     * payload becomes a {@code TextMessage}, a byte array becomes a {@code BytesMessage}, and a
+     * map or record (both represented as {@code BMap} at runtime) becomes a {@code MapMessage}.
+     */
+    @SuppressWarnings("unchecked")
+    private static Message createOutgoingMessage(Session session, Object payload) throws JMSException {
+        if (payload instanceof BString bString) {
+            TextMessage textMessage = session.createTextMessage();
+            textMessage.setText(bString.getValue());
+            return textMessage;
+        }
+        if (payload instanceof BArray bArray) {
+            BytesMessage bytesMessage = session.createBytesMessage();
+            bytesMessage.writeBytes(bArray.getBytes());
+            return bytesMessage;
+        }
+        if (payload instanceof BMap<?, ?> rawMap) {
+            MapMessage mapMessage = session.createMapMessage();
+            BMap<BString, Object> bMap = (BMap<BString, Object>) rawMap;
+            for (BString key : bMap.getKeys()) {
+                setMapEntry(mapMessage, key.getValue(), bMap.get(key));
+            }
+            return mapMessage;
+        }
+        throw new JMSException("Unsupported payload type for sending: "
+                + (payload == null ? "null" : payload.getClass().getSimpleName()));
+    }
+
+    private static void setMapEntry(MapMessage message, String name, Object value) throws JMSException {
+        if (value instanceof BString bStr) {
+            message.setString(name, bStr.getValue());
+        } else if (value instanceof Long l) {
+            message.setLong(name, l);
+        } else if (value instanceof Double d) {
+            message.setDouble(name, d);
+        } else if (value instanceof Boolean b) {
+            message.setBoolean(name, b);
+        } else if (value instanceof Integer i) {
+            // Ballerina `byte` is boxed as Integer here, not Byte.
+            message.setByte(name, i.byteValue());
+        } else if (value instanceof BArray bArray) {
+            message.setBytes(name, bArray.getBytes());
+        } else if (value != null) {
+            LOGGER.warning(() -> String.format(
+                    "Dropped map payload entry '%s' of unsupported type '%s' when sending a MapMessage",
+                    name, value.getClass().getSimpleName()));
+        }
     }
 
     public static int getDeliveryMode(BMap<BString, Object> bMsg) {

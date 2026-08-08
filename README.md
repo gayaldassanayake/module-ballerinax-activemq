@@ -103,15 +103,19 @@ public function main() returns error? {
         destination = {queueName: "orders.queue"}
     );
 
-    activemq:Message? msg = check consumer->receive(5000);
+    record {|*activemq:Message; string payload;|}? msg = check consumer->receive(5000);
     if msg is activemq:Message {
-        string text = check string:fromBytes(msg.payload);
-        io:println("Received: ", text);
+        io:println("Received: ", msg.payload);
     }
 
     check consumer->close();
 }
 ```
+
+The `payload` field's declared type in the target record determines how the message body is
+converted — `string`/`xml` for a `TextMessage`, `byte[]` for a `BytesMessage`, or a `map`/record
+shape for a `MapMessage`. Omit the explicit type (`activemq:Message? msg = check consumer->receive(5000);`)
+to get the JMS-message-appropriate default representation instead.
 
 ### 5. Subscribe with a Listener service
 
@@ -132,7 +136,7 @@ listener activemq:Listener mqListener = check new ("tcp://localhost:61616",
 }
 service activemq:Service on mqListener {
     remote function onMessage(activemq:Message message) returns error? {
-        string text = check string:fromBytes(message.payload);
+        string text = check string:fromBytes(check message.payload.ensureType());
         log:printInfo("Processing order: " + text);
     }
 }

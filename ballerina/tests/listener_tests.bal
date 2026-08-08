@@ -45,7 +45,7 @@ function testItListenerReceivesTextMessage() returns error? {
         queueName: "it.listener.text.queue"
     } service object {
         remote function onMessage(Message message) returns error? {
-            string payload = check string:fromBytes(message.payload);
+            string payload = check string:fromBytes(check message.payload.ensureType());
             lock { itListenerTextCount += 1; }
             lock { itListenerTextPayload = payload; }
         }
