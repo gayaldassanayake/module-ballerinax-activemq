@@ -222,6 +222,24 @@ activemq:Message? msg = check consumer->receive(5000);
 
 The same `messageSelector` field is available in `@ServiceConfig` for listener services.
 
+### 10. Tuning prefetch and redelivery
+
+`PrefetchPolicy` controls how many messages the broker pushes to the client ahead of demand
+(higher values trade memory for throughput); `RedeliveryPolicy` controls retry behavior for a
+message that's rolled back or left unacknowledged:
+
+```ballerina
+activemq:MessageConsumer consumer = check new ("tcp://localhost:61616",
+    destination = {queueName: "orders.queue"},
+    prefetchPolicy = {queuePrefetchSize: 100},
+    redeliveryPolicy = {maximumRedeliveries: 3, initialRedeliveryDelay: 2000}
+);
+```
+
+Here, the broker prefetches up to 100 messages for this consumer, and a message that's rolled
+back is redelivered up to 3 times, waiting 2 seconds before the first retry. Both configurations
+are also accepted by `MessageProducer` and `Listener`.
+
 ### Broker containers (for local development)
 
 | Container | Port | Purpose |
