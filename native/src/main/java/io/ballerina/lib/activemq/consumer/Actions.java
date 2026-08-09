@@ -122,7 +122,12 @@ public final class Actions {
                     return null;
                 }
             }
-            return jmsMsg == null ? null : MessageMapper.toBallerinaMessage(jmsMsg, bTypedesc);
+            if (jmsMsg == null) {
+                return null;
+            }
+            BMap<BString, Object> bMsg = MessageMapper.toBallerinaMessage(jmsMsg, bTypedesc);
+            bMsg.addNativeData(NATIVE_STATE, state);
+            return bMsg;
         } catch (JMSException e) {
             synchronized (state) {
                 if (state.closed) {
@@ -135,19 +140,25 @@ public final class Actions {
         }
     }
 
-    /**
-     * Acknowledges a previously received message. Operates directly on the native JMS message
-     * stashed on the record by {@link MessageMapper#toBallerinaMessage(Message)}, mirroring the
-     * existing listener-side {@code Caller.acknowledge} - no consumer instance reference needed,
-     * since JMS's {@code Message.acknowledge()} acknowledges everything up to that message within
-     * its own session regardless of which message instance it's called on.
-     */
+    // Operates on the native JMS message stashed by receiveFrom(); the same-session ConsumerState
+    // stashed alongside it is used to synchronize with receive()/close() on that session.
     public static Object acknowledge(BMap<BString, Object> message) {
-        try {
-            Object nativeMessage = message.getNativeData(MessageMapper.NATIVE_MESSAGE);
-            if (nativeMessage instanceof Message jmsMsg) {
-                jmsMsg.acknowledge();
+        Object nativeMessage = message.getNativeData(MessageMapper.NATIVE_MESSAGE);
+        if (!(nativeMessage instanceof Message jmsMsg)) {
+            return null;
+        }
+        Object nativeState = message.getNativeData(NATIVE_STATE);
+        if (nativeState instanceof ConsumerState state) {
+            synchronized (state) {
+                return doAcknowledge(jmsMsg);
             }
+        }
+        return doAcknowledge(jmsMsg);
+    }
+
+    private static Object doAcknowledge(Message jmsMsg) {
+        try {
+            jmsMsg.acknowledge();
         } catch (JMSException e) {
             return createError(ACTIVEMQ_ERROR, "Failed to acknowledge message: " + e.getMessage(), e);
         }
