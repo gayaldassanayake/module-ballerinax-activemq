@@ -133,6 +133,32 @@ isolated function testClientMessageFieldsRoundtrip() returns error? {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Test 4b: an explicit priority of 0 (the legal JMS minimum) round-trips as 0,
+// not absent — it must not be dropped the way expiry: 0 used to be.
+// ─────────────────────────────────────────────────────────────────────────────
+
+@test:Config {
+    groups: ["client"]
+}
+isolated function testClientPriorityZeroRoundtrips() returns error? {
+    MessageProducer producer = check new (BROKER_URL);
+    check producer->send({
+        messageId: "priority-zero-1",
+        payload: "priority zero payload".toBytes(),
+        priority: 0
+    }, {queueName: "client.test.priorityzero.queue"});
+    check producer->close();
+
+    MessageConsumer consumer = check new (BROKER_URL, destination = {queueName: "client.test.priorityzero.queue"});
+    Message? received = check consumer->receive(5000);
+    check consumer->close();
+    test:assertTrue(received is Message, "should receive message");
+    if received is Message {
+        test:assertEquals(received.priority, 0, "priority 0 should round-trip, not be dropped as absent");
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Test 5: Persistent and non-persistent delivery modes are reflected in received
 //         messages
 // ─────────────────────────────────────────────────────────────────────────────

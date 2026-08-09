@@ -184,9 +184,7 @@ public class MessageMapper {
         }
 
         int priority = message.getJMSPriority();
-        if (priority > 0) {
-            result.put(PRIORITY_FIELD, priority);
-        }
+        result.put(PRIORITY_FIELD, (long) priority);
 
         String userID = message.getStringProperty("JMSXUserID");
         if (userID != null) {
