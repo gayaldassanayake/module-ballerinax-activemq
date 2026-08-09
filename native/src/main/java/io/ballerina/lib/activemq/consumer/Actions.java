@@ -56,16 +56,13 @@ public final class Actions {
         final Connection connection;
         final Session session;
         final MessageConsumer consumer;
-        final Destination destination;
         final boolean transacted;
         volatile boolean closed = false;
 
-        ConsumerState(Connection connection, Session session, MessageConsumer consumer, Destination destination,
-                boolean transacted) {
+        ConsumerState(Connection connection, Session session, MessageConsumer consumer, boolean transacted) {
             this.connection = connection;
             this.session = session;
             this.consumer = consumer;
-            this.destination = destination;
             this.transacted = transacted;
         }
     }
@@ -84,7 +81,7 @@ public final class Actions {
             MessageConsumer consumer = config.messageSelector() != null
                     ? session.createConsumer(destination, config.messageSelector())
                     : session.createConsumer(destination);
-            ConsumerState state = new ConsumerState(connection, session, consumer, destination, transacted);
+            ConsumerState state = new ConsumerState(connection, session, consumer, transacted);
             bConsumer.addNativeData(NATIVE_STATE, state);
         } catch (Exception e) {
             return createError(ACTIVEMQ_ERROR, "Failed to initialize consumer: " + e.getMessage(), e);
@@ -92,37 +89,18 @@ public final class Actions {
         return null;
     }
 
-    public static Object receive(BObject bConsumer, long timeoutMs, Object messageSelector, BTypedesc bTypedesc) {
+    public static Object receive(BObject bConsumer, long timeoutMs, BTypedesc bTypedesc) {
         return execute(bConsumer, "receive message", state -> {
-            Message jmsMsg = receiveWithOptionalSelector(state, messageSelector, timeoutMs, false);
+            Message jmsMsg = state.consumer.receive(timeoutMs);
             return jmsMsg == null ? null : MessageMapper.toBallerinaMessage(jmsMsg, bTypedesc);
         });
     }
 
-    public static Object receiveNoWait(BObject bConsumer, Object messageSelector, BTypedesc bTypedesc) {
+    public static Object receiveNoWait(BObject bConsumer, BTypedesc bTypedesc) {
         return execute(bConsumer, "receive message", state -> {
-            Message jmsMsg = receiveWithOptionalSelector(state, messageSelector, 0, true);
+            Message jmsMsg = state.consumer.receiveNoWait();
             return jmsMsg == null ? null : MessageMapper.toBallerinaMessage(jmsMsg, bTypedesc);
         });
-    }
-
-    /**
-     * Receives using the persistent consumer, unless {@code messageSelector} overrides it for this
-     * call — in which case a temporary consumer scoped to that selector is created, used once, and
-     * closed. Both paths run inside {@code execute}'s {@code synchronized (state)} block, so this
-     * never races with other operations on the same session.
-     */
-    private static Message receiveWithOptionalSelector(ConsumerState state, Object messageSelector,
-            long timeoutMs, boolean noWait) throws JMSException {
-        if (!(messageSelector instanceof BString bSelector) || bSelector.getValue().isEmpty()) {
-            return noWait ? state.consumer.receiveNoWait() : state.consumer.receive(timeoutMs);
-        }
-        MessageConsumer temp = state.session.createConsumer(state.destination, bSelector.getValue());
-        try {
-            return noWait ? temp.receiveNoWait() : temp.receive(timeoutMs);
-        } finally {
-            temp.close();
-        }
     }
 
     /**

@@ -55,15 +55,12 @@ public isolated client class MessageConsumer {
     # ```
     #
     # + timeoutMs - Maximum time in milliseconds to wait for a message
-    # + messageSelector - Overrides this consumer's configured selector for this call only. A
-    #                     temporary internal consumer scoped to this selector is created for the
-    #                     call and closed immediately after
     # + T - Optional type description of the expected message shape. The `payload` field's
     #       declared type in `T` determines how the received message body is converted; leave
     #       unset to get the JMS-message-appropriate default representation
     # + return - The received message (as `T`), `()` on timeout, or `activemq:Error` on failure
     #            or if the payload cannot be converted to the requested type
-    isolated remote function receive(int timeoutMs = 5000, string? messageSelector = (),
+    isolated remote function receive(int timeoutMs = 5000,
             typedesc<Message> T = <>) returns T|Error? = @java:Method {
         'class: "io.ballerina.lib.activemq.consumer.Actions"
     } external;
@@ -76,16 +73,12 @@ public isolated client class MessageConsumer {
     # record {|*activemq:Message; string payload;|}? typedMsg = check consumer->receiveNoWait();
     # ```
     #
-    # + messageSelector - Overrides this consumer's configured selector for this call only. A
-    #                     temporary internal consumer scoped to this selector is created for the
-    #                     call and closed immediately after
     # + T - Optional type description of the expected message shape. The `payload` field's
     #       declared type in `T` determines how the received message body is converted; leave
     #       unset to get the JMS-message-appropriate default representation
     # + return - The received message (as `T`), `()` if none is available, or `activemq:Error` on
     #            failure or if the payload cannot be converted to the requested type
-    isolated remote function receiveNoWait(string? messageSelector = (),
-            typedesc<Message> T = <>) returns T|Error? = @java:Method {
+    isolated remote function receiveNoWait(typedesc<Message> T = <>) returns T|Error? = @java:Method {
         'class: "io.ballerina.lib.activemq.consumer.Actions"
     } external;
 
