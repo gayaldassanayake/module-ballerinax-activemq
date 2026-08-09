@@ -140,3 +140,15 @@ isolated function sendRequestAndAwaitTemporaryReply(string brokerUrl, string req
         string requestPayload, int timeoutMs) returns string = @java:Method {
     'class: "io.ballerina.lib.activemq.util.TestProducer"
 } external;
+
+# Sends a text message with one property set to a type outside the 8 the connector explicitly
+# handles (a `java.util.List`, via the ActiveMQ-specific `setObjectProperty` escape hatch).
+#
+# + brokerUrl - The broker URL (e.g., "tcp://localhost:61616")
+# + queueName - The queue name
+# + message - The message text
+# + return - Error if sending fails
+isolated function sendMessageWithUnsupportedPropertyType(string brokerUrl, string queueName, string message)
+        returns error? = @java:Method {
+    'class: "io.ballerina.lib.activemq.util.TestProducer"
+} external;

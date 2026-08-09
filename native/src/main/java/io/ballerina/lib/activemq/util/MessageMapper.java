@@ -217,9 +217,10 @@ public class MessageMapper {
                 props.put(bName, b);
             } else if (value != null) {
                 LOGGER.warning(() -> String.format(
-                        "Dropped message property '%s' of unsupported type '%s' - value cannot be represented as "
-                                + "an activemq:Property (boolean, int, byte, float, or string)",
+                        "Property '%s' of unsupported type '%s' cannot be represented as an activemq:Property "
+                                + "(boolean, int, byte, float, string, or byte[]) - falling back to toString()",
                         name, value.getClass().getSimpleName()));
+                props.put(bName, StringUtils.fromString(value.toString()));
             }
         }
         result.put(MESSAGE_PROPERTIES, props);

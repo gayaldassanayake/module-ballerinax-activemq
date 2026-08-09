@@ -248,3 +248,33 @@ function testTemporaryReplyToRoundTripsIdentity() returns error? {
     test:assertEquals(reply, "reply payload",
         "reply should be delivered to the original temporary queue, not a re-created regular one");
 }
+
+// TC-DATABIND-09: a property of a type outside the 8 JMS explicitly supports degrades to a
+// best-effort toString() representation instead of being silently dropped.
+@test:Config {
+    groups: ["integration", "dataBinding"]
+}
+function testUnrecognizedPropertyTypeFallsBackToString() returns error? {
+    check drainQueue("it.databind.unsupportedprop.queue");
+    check sendMessageWithUnsupportedPropertyType(
+        brokerUrl, "it.databind.unsupportedprop.queue", "payload with odd property");
+
+    MessageConsumer consumer = check new (brokerUrl,
+        username = username, password = password,
+        destination = {queueName: "it.databind.unsupportedprop.queue"});
+    Message? received = check consumer->receive(5000);
+    check consumer->close();
+    test:assertTrue(received is Message, "should receive the sent message");
+    if received is Message {
+        map<Property>? props = received.properties;
+        test:assertTrue(props is map<Property>, "properties should be present");
+        if props is map<Property> {
+            Property? unsupported = props["unsupportedProp"];
+            test:assertTrue(unsupported is string,
+                "an unrecognized property type should fall back to a string, not be dropped");
+            if unsupported is string {
+                test:assertTrue(unsupported.length() > 0, "the fallback string should be non-empty");
+            }
+        }
+    }
+}

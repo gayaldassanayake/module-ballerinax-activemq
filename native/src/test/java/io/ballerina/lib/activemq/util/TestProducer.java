@@ -535,4 +535,53 @@ public final class TestProducer {
             }
         }
     }
+
+    /**
+     * Sends a text message with one property set to a type outside the 8 the connector's
+     * {@code MessageMapper} explicitly handles (boolean, byte, short, int, long, float, double,
+     * String) — a {@code java.util.List}, which ActiveMQ's {@code setObjectProperty} accepts as
+     * a broker-level extension even though the JMS spec itself doesn't require support for it.
+     * Used to verify that an unrecognized property type degrades to a best-effort string instead
+     * of being silently dropped.
+     *
+     * @param brokerUrl The broker URL
+     * @param queueName The queue name
+     * @param message   The message text
+     * @throws JMSException If message sending fails
+     */
+    public static void sendMessageWithUnsupportedPropertyType(BString brokerUrl, BString queueName, BString message)
+            throws JMSException {
+        Connection connection = null;
+        Session session = null;
+        MessageProducer producer = null;
+
+        try {
+            ActiveMQConnectionFactory connectionFactory = createConnectionFactory(brokerUrl.getValue());
+            connection = connectionFactory.createConnection();
+            connection.start();
+
+            session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            Destination destination = session.createQueue(queueName.getValue());
+            producer = session.createProducer(destination);
+
+            TextMessage textMessage = session.createTextMessage(message.getValue());
+            textMessage.setObjectProperty("unsupportedProp", java.util.List.of("a", "b"));
+
+            producer.send(textMessage);
+        } catch (JMSException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new JMSException("Failed to create connection: " + e.getMessage());
+        } finally {
+            if (producer != null) {
+                producer.close();
+            }
+            if (session != null) {
+                session.close();
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        }
+    }
 }
