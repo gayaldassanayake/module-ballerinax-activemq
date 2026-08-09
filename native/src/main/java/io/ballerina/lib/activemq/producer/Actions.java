@@ -18,6 +18,7 @@
 
 package io.ballerina.lib.activemq.producer;
 
+import io.ballerina.lib.activemq.util.CommonUtils;
 import io.ballerina.lib.activemq.util.ConnectionFactoryUtils;
 import io.ballerina.lib.activemq.util.MessageMapper;
 import io.ballerina.runtime.api.values.BMap;
@@ -68,22 +69,34 @@ public final class Actions {
     }
 
     public static Object init(BObject bProducer, BString url, BMap<BString, Object> configurations) {
+        Connection connection = null;
+        Session session = null;
         try {
             ProducerConfig config = new ProducerConfig(configurations);
             ActiveMQConnectionFactory factory =
                     ConnectionFactoryUtils.createConnectionFactory(url.getValue(), config.connectionConfig());
-            Connection connection = factory.createConnection();
+            connection = factory.createConnection();
             connection.start();
             int sessionMode = config.transacted() ? Session.SESSION_TRANSACTED : Session.AUTO_ACKNOWLEDGE;
-            Session session = connection.createSession(sessionMode);
+            session = connection.createSession(sessionMode);
             MessageProducer producer = session.createProducer(null); // unidentified producer
             ProducerState state = new ProducerState(
                     connection, session, producer, config.transacted(), config.destination());
             bProducer.addNativeData(NATIVE_STATE, state);
         } catch (Exception e) {
+            cleanupOnInitFailure(connection, session);
             return createError(ACTIVEMQ_ERROR, "Failed to initialize producer: " + e.getMessage(), e);
         }
         return null;
+    }
+
+    private static void cleanupOnInitFailure(Connection connection, Session session) {
+        if (session != null) {
+            CommonUtils.closeQuietly(session::close);
+        }
+        if (connection != null) {
+            CommonUtils.closeQuietly(connection::close);
+        }
     }
 
     public static Object send(BObject bProducer, BMap<BString, Object> bMessage, Object destinationObj) {

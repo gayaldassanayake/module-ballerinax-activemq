@@ -89,3 +89,19 @@ function testItConnectionWrongCredentials() {
         do { check result->close(); } on fail { }
     }
 }
+
+// TC-CONN-04: init() fails after the connection is already open (a syntactically invalid
+// message selector is only rejected by the broker at createConsumer() time) — this must still
+// return a clean Error rather than leaking the already-opened JMS connection.
+@test:Config {
+    groups: ["integration", "connection"]
+}
+function testItConsumerInitFailureAfterConnectionOpenCleansUp() {
+    MessageConsumer|Error result = new (brokerUrl, username = username, password = password,
+        destination = {queueName: "it.conn.init.cleanup.queue"}, messageSelector = "not a valid ( selector");
+    test:assertTrue(result is Error,
+        "a malformed message selector should be rejected with a clean Error, not a panic");
+    if result is MessageConsumer {
+        do { check result->close(); } on fail { }
+    }
+}

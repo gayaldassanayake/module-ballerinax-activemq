@@ -96,4 +96,26 @@ public class CommonUtils {
             default -> throw new jakarta.jms.JMSException("Unrecognized acknowledgement mode: " + ackMode);
         };
     }
+
+    /**
+     * Runs a cleanup action and swallows any exception, so a failure while releasing a
+     * partially-initialized resource never masks the original error being returned to the caller.
+     *
+     * @param action the cleanup action to run
+     */
+    public static void closeQuietly(ThrowingRunnable action) {
+        try {
+            action.run();
+        } catch (Exception ignored) {
+            // best-effort cleanup - ignore
+        }
+    }
+
+    /**
+     * Functional interface for a cleanup action that can throw a checked exception.
+     */
+    @FunctionalInterface
+    public interface ThrowingRunnable {
+        void run() throws Exception;
+    }
 }

@@ -19,6 +19,7 @@
 package io.ballerina.lib.activemq.consumer;
 
 import io.ballerina.lib.activemq.util.ActiveMQDatabindingException;
+import io.ballerina.lib.activemq.util.CommonUtils;
 import io.ballerina.lib.activemq.util.ConnectionFactoryUtils;
 import io.ballerina.lib.activemq.util.MessageMapper;
 import io.ballerina.runtime.api.values.BMap;
@@ -68,15 +69,17 @@ public final class Actions {
     }
 
     public static Object init(BObject bConsumer, BString url, BMap<BString, Object> configurations) {
+        Connection connection = null;
+        Session session = null;
         try {
             ConsumerConfig config = new ConsumerConfig(configurations);
             ActiveMQConnectionFactory factory =
                     ConnectionFactoryUtils.createConnectionFactory(url.getValue(), config.connectionConfig());
-            Connection connection = factory.createConnection();
+            connection = factory.createConnection();
             connection.start();
             int sessionMode = getAcknowledgementMode(config.ackMode());
             boolean transacted = sessionMode == Session.SESSION_TRANSACTED;
-            Session session = connection.createSession(sessionMode);
+            session = connection.createSession(sessionMode);
             Destination destination = MessageMapper.toJmsDestination(session, config.destination());
             MessageConsumer consumer = config.messageSelector() != null
                     ? session.createConsumer(destination, config.messageSelector())
@@ -84,9 +87,19 @@ public final class Actions {
             ConsumerState state = new ConsumerState(connection, session, consumer, transacted);
             bConsumer.addNativeData(NATIVE_STATE, state);
         } catch (Exception e) {
+            cleanupOnInitFailure(connection, session);
             return createError(ACTIVEMQ_ERROR, "Failed to initialize consumer: " + e.getMessage(), e);
         }
         return null;
+    }
+
+    private static void cleanupOnInitFailure(Connection connection, Session session) {
+        if (session != null) {
+            CommonUtils.closeQuietly(session::close);
+        }
+        if (connection != null) {
+            CommonUtils.closeQuietly(connection::close);
+        }
     }
 
     public static Object receive(BObject bConsumer, long timeoutMs, BTypedesc bTypedesc) {
