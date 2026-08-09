@@ -19,7 +19,7 @@
 package io.ballerina.lib.activemq.listener;
 
 import io.ballerina.lib.activemq.util.ConnectionConfig;
-import io.ballerina.lib.activemq.util.PrefetchPolicyConfig;
+import io.ballerina.lib.activemq.util.ConnectionFactoryUtils;
 import io.ballerina.lib.activemq.util.RedeliveryPolicyConfig;
 import io.ballerina.runtime.api.Environment;
 import io.ballerina.runtime.api.values.BError;
@@ -34,28 +34,16 @@ import jakarta.jms.Session;
 import jakarta.jms.Topic;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.ActiveMQMessageConsumer;
-import org.apache.activemq.ActiveMQPrefetchPolicy;
-import org.apache.activemq.ActiveMQSslConnectionFactory;
 import org.apache.activemq.RedeliveryPolicy;
 
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Properties;
-
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.TrustManager;
 
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.ACTIVEMQ_ERROR;
-import static io.ballerina.lib.activemq.util.ActiveMQConstants.CERT;
-import static io.ballerina.lib.activemq.util.ActiveMQConstants.KEY;
-import static io.ballerina.lib.activemq.util.ActiveMQConstants.PROPERTIES;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.QUERY_PARAM_EXCLUSIVE_CONSUMER;
 import static io.ballerina.lib.activemq.util.CommonUtils.createError;
 import static io.ballerina.lib.activemq.util.CommonUtils.getAcknowledgementMode;
-import static io.ballerina.lib.activemq.util.SslUtils.getKeyManagers;
-import static io.ballerina.lib.activemq.util.SslUtils.getTrustmanagers;
 
 /**
  * Native implementation of the Ballerina ActiveMQ Listener. This class manages JMS connections,
@@ -84,51 +72,11 @@ public final class Listener {
      * @param configurations  the connection configurations
      * @return null on success, BError on failure
      */
-    @SuppressWarnings("unchecked")
     public static Object init(BObject bListener, BString url, BMap<BString, Object> configurations) {
         try {
-            String brokerURL = url.getValue();
             ConnectionConfig config = new ConnectionConfig(configurations);
-            ActiveMQConnectionFactory factory;
-
-            // Configure SSL/TLS connection factory if secure socket configuration is provided
-            if (Objects.nonNull(config.secureSocket())) {
-                ActiveMQSslConnectionFactory sslFactory = new ActiveMQSslConnectionFactory(brokerURL);
-                BMap<BString, Object> secureSocket = config.secureSocket();
-                Object bCert = secureSocket.get(CERT);
-                BMap<BString, BString> keyRecord = (BMap<BString, BString>) secureSocket.getMapValue(KEY);
-                // Create KeyManagers and TrustManagers
-                KeyManager[] keyManagers = getKeyManagers(keyRecord);
-                TrustManager[] trustManagers = getTrustmanagers(bCert);
-                sslFactory.setKeyAndTrustManagers(keyManagers, trustManagers, new SecureRandom());
-                factory = sslFactory;
-            } else {
-                factory = new ActiveMQConnectionFactory(brokerURL);
-            }
-
-            String username = config.username();
-            String password = config.password();
-            if ((username != null && password == null) || (username == null && password != null)) {
-                throw new IllegalArgumentException(
-                        "Username and password must both be provided or both be omitted for anonymous access"
-                );
-            }
-            if (username != null) {
-                factory.setUserName(config.username());
-                factory.setPassword(config.password());
-            }
-            factory.setClientID(config.clientId());
-
-            factory.setOptimizeAcknowledge(config.optimizeAcknowledgements());
-            factory.setAlwaysSessionAsync(config.setAlwaysSessionAsync());
-
-            if (config.prefetchPolicyConfig() != null) {
-                factory.setPrefetchPolicy(generatePrefetchPolicy(config.prefetchPolicyConfig()));
-            }
-            if (config.redeliveryPolicyConfig() != null) {
-                factory.setRedeliveryPolicy(generateRedeliveryPolicy(config.redeliveryPolicyConfig()));
-            }
-            factory.setProperties(generateConnectionProperties(configurations));
+            ActiveMQConnectionFactory factory = ConnectionFactoryUtils.createConnectionFactory(
+                    url.getValue(), config);
 
             Connection connection = factory.createConnection();
             bListener.addNativeData(NATIVE_CONNECTION, connection);
@@ -322,22 +270,6 @@ public final class Listener {
     }
 
     /**
-     * Generates an ActiveMQ prefetch policy from the configuration.
-     *
-     * @param prefetchPolicyConfig  the prefetch policy configuration
-     * @return the configured ActiveMQ prefetch policy
-     */
-    private static ActiveMQPrefetchPolicy generatePrefetchPolicy(
-            PrefetchPolicyConfig prefetchPolicyConfig) {
-        ActiveMQPrefetchPolicy prefetchPolicy = new ActiveMQPrefetchPolicy();
-        prefetchPolicy.setQueuePrefetch(prefetchPolicyConfig.queuePrefetchSize());
-        prefetchPolicy.setTopicPrefetch(prefetchPolicyConfig.topicPrefetchSize());
-        prefetchPolicy.setDurableTopicPrefetch(prefetchPolicyConfig.durableTopicPrefetchSize());
-        prefetchPolicy.setOptimizeDurableTopicPrefetch(prefetchPolicyConfig.optimizeDurableTopicPrefetchSize());
-        return prefetchPolicy;
-    }
-
-    /**
      * Generates an ActiveMQ redelivery policy from the configuration.
      *
      * @param redeliveryPolicyConfig  the redelivery policy configuration
@@ -356,23 +288,6 @@ public final class Listener {
         redeliveryPolicy.setRedeliveryDelay(redeliveryPolicyConfig.redeliveryDelay());
         redeliveryPolicy.setPreDispatchCheck(redeliveryPolicyConfig.preDispatchCheck());
         return redeliveryPolicy;
-    }
-
-    /**
-     * Generates Java Properties from Ballerina connection configuration map.
-     *
-     * @param connectionConfigs  the Ballerina connection configurations
-     * @return Java Properties object with connection properties
-     */
-    @SuppressWarnings("unchecked")
-    private static Properties generateConnectionProperties(BMap<BString, Object> connectionConfigs) {
-        BMap<BString, BString> additionalProperties = (BMap<BString, BString>) connectionConfigs
-                .getMapValue(PROPERTIES);
-        Properties properties = new Properties();
-        for (BString key : additionalProperties.getKeys()) {
-            properties.put(key.getValue(), additionalProperties.getStringValue(key).getValue());
-        }
-        return properties;
     }
 
     /**
