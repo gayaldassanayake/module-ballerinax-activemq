@@ -59,7 +59,6 @@ import static io.ballerina.lib.activemq.util.ActiveMQConstants.AMQ_SCHEDULED_CRO
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.AMQ_SCHEDULED_DELAY;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.AMQ_SCHEDULED_PERIOD;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.AMQ_SCHEDULED_REPEAT;
-import static io.ballerina.lib.activemq.util.ActiveMQConstants.BMESSAGE_NAME;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.CORRELATION_ID;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.DELIVERY_TIME_FIELD;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.DESTINATION_FIELD;
@@ -78,6 +77,7 @@ import static io.ballerina.lib.activemq.util.ActiveMQConstants.SCHEDULED_CRON;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.SCHEDULED_DELAY;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.SCHEDULED_PERIOD;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.SCHEDULED_REPEAT;
+import static io.ballerina.lib.activemq.util.ActiveMQConstants.TEMPORARY;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.TIMESTAMP_FIELD;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.TOPIC_NAME;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.TYPE_FIELD;
@@ -95,39 +95,14 @@ public class MessageMapper {
     static final BString BINARY = StringUtils.fromString("binary");
     static final BString UNKNOWN = StringUtils.fromString("unknown");
     public static final String NATIVE_MESSAGE = "native.message";
+    public static final String NATIVE_DESTINATION = "native.destination";
 
     private static final UnionType PROPERTY_TYPE = TypeCreator.createUnionType(
             PredefinedTypes.TYPE_BOOLEAN, PredefinedTypes.TYPE_INT, PredefinedTypes.TYPE_BYTE,
-            PredefinedTypes.TYPE_FLOAT, PredefinedTypes.TYPE_STRING);
+            PredefinedTypes.TYPE_FLOAT, PredefinedTypes.TYPE_STRING,
+            TypeCreator.createArrayType(PredefinedTypes.TYPE_BYTE));
     private static final MapType BALLERINA_PROPERTY_TYPE = TypeCreator.createMapType(
             "Property", PROPERTY_TYPE, getModule());
-
-    public static BMap<BString, Object> toBallerinaMessage(Message message) throws JMSException {
-        BMap<BString, Object> result = ValueCreator.createRecordValue(getModule(), BMESSAGE_NAME);
-        populateHeaders(result, message);
-
-        // Payload - convert byte arrays to Ballerina arrays
-        if (message instanceof TextMessage) {
-            byte[] payload = ((TextMessage) message).getText().getBytes(StandardCharsets.UTF_8);
-            result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(payload));
-            result.put(FORMAT_FIELD, TEXT);
-
-        } else if (message instanceof BytesMessage bytesMessage) {
-            byte[] payload = new byte[(int) bytesMessage.getBodyLength()];
-            bytesMessage.readBytes(payload);
-            result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(payload));
-            result.put(FORMAT_FIELD, BINARY);
-
-        } else {
-            // fallback: try getBody
-            byte[] fallback;
-            fallback = message.getBody(String.class).getBytes(StandardCharsets.UTF_8);
-            result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(fallback));
-            result.put(FORMAT_FIELD, UNKNOWN);
-        }
-        result.addNativeData(NATIVE_MESSAGE, message);
-        return result;
-    }
 
     /**
      * Converts a JMS message to a Ballerina message record of the shape described by
@@ -290,7 +265,10 @@ public class MessageMapper {
 
     private static Object getPayloadFromTextMessage(TextMessage message, Type payloadType, int typeTag)
             throws JMSException {
-        if (typeTag == TypeTags.ANYDATA_TAG || typeTag == TypeTags.STRING_TAG) {
+        if (typeTag == TypeTags.ANYDATA_TAG) {
+            return ValueCreator.createArrayValue(message.getText().getBytes(StandardCharsets.UTF_8));
+        }
+        if (typeTag == TypeTags.STRING_TAG) {
             return StringUtils.fromString(message.getText());
         }
         if (typeTag == TypeTags.XML_TAG) {
@@ -330,10 +308,12 @@ public class MessageMapper {
                 payload.put(bKey, d);
             } else if (value instanceof Boolean b) {
                 payload.put(bKey, b);
+            } else if (value instanceof byte[] bytes) {
+                payload.put(bKey, ValueCreator.createArrayValue(bytes));
             } else if (value != null) {
                 LOGGER.warning(() -> String.format(
                         "Dropped MapMessage entry '%s' of unsupported type '%s' - value cannot be represented as "
-                                + "an activemq:Property (boolean, int, byte, float, or string)",
+                                + "an activemq:Property (boolean, int, byte, float, string, or byte[])",
                         key, value.getClass().getSimpleName()));
             }
         }
@@ -381,45 +361,63 @@ public class MessageMapper {
         return (RecordType) describingType;
     }
 
-    /** Converts a JMS destination to the public Ballerina Destination record. */
+    /**
+     * Converts a JMS destination to the public Ballerina Destination record, preserving the
+     * native destination as native data so {@link #toJmsDestination} can hand back the exact
+     * same object later (this is what keeps a temporary queue/topic's broker-assigned identity
+     * intact across a {@code replyTo} round trip).
+     */
     static BMap<BString, Object> toBallerinaDestination(Destination destination) throws JMSException {
+        BMap<BString, Object> result;
         if (destination instanceof TemporaryQueue queue) {
-            return createQueue(queue.getQueueName());
+            result = createQueue(queue.getQueueName(), true);
+        } else if (destination instanceof Queue queue) {
+            result = createQueue(queue.getQueueName(), false);
+        } else if (destination instanceof TemporaryTopic topic) {
+            result = createTopic(topic.getTopicName(), true);
+        } else if (destination instanceof Topic topic) {
+            result = createTopic(topic.getTopicName(), false);
+        } else {
+            throw new JMSException("Unsupported JMS destination type: " + destination.getClass().getName());
         }
-        if (destination instanceof Queue queue) {
-            return createQueue(queue.getQueueName());
-        }
-        if (destination instanceof TemporaryTopic topic) {
-            return createTopic(topic.getTopicName());
-        }
-        if (destination instanceof Topic topic) {
-            return createTopic(topic.getTopicName());
-        }
-        throw new JMSException("Unsupported JMS destination type: " + destination.getClass().getName());
+        result.addNativeData(NATIVE_DESTINATION, destination);
+        return result;
     }
 
-    private static BMap<BString, Object> createQueue(String name) {
+    private static BMap<BString, Object> createQueue(String name, boolean temporary) {
         BMap<BString, Object> queue = ValueCreator.createRecordValue(getModule(), "Queue");
-        queue.put(StringUtils.fromString("queueName"), StringUtils.fromString(name));
+        queue.put(QUEUE_NAME, StringUtils.fromString(name));
+        queue.put(TEMPORARY, temporary);
         return queue;
     }
 
-    private static BMap<BString, Object> createTopic(String name) {
+    private static BMap<BString, Object> createTopic(String name, boolean temporary) {
         BMap<BString, Object> topic = ValueCreator.createRecordValue(getModule(), "Topic");
-        topic.put(StringUtils.fromString("topicName"), StringUtils.fromString(name));
+        topic.put(TOPIC_NAME, StringUtils.fromString(name));
+        topic.put(TEMPORARY, temporary);
         return topic;
     }
 
-    /** Creates a JMS Destination from the public Ballerina Destination record. */
+    /**
+     * Creates a JMS Destination from the public Ballerina Destination record. A record that came
+     * off a received message (stashed native destination present) reuses that exact object; a
+     * hand-built {@code temporary: true} record gets a fresh broker-assigned temporary
+     * queue/topic; otherwise a regular named destination is created as before.
+     */
     public static Destination toJmsDestination(Session session, BMap<BString, Object> destination)
             throws JMSException {
+        Object nativeDestination = destination.getNativeData(NATIVE_DESTINATION);
+        if (nativeDestination instanceof Destination jmsDestination) {
+            return jmsDestination;
+        }
+        boolean temporary = destination.get(TEMPORARY) instanceof Boolean b && b;
         Object topicName = destination.get(TOPIC_NAME);
         if (topicName instanceof BString topic) {
-            return session.createTopic(topic.getValue());
+            return temporary ? session.createTemporaryTopic() : session.createTopic(topic.getValue());
         }
         Object queueName = destination.get(QUEUE_NAME);
         if (queueName instanceof BString queue) {
-            return session.createQueue(queue.getValue());
+            return temporary ? session.createTemporaryQueue() : session.createQueue(queue.getValue());
         }
         throw new JMSException("Invalid destination: expected queueName or topicName");
     }

@@ -127,3 +127,16 @@ isolated function sendPersistentMessage(string brokerUrl, string queueName, stri
 isolated function sendNonPersistentMessage(string brokerUrl, string queueName, string message) returns error? = @java:Method {
     'class: "io.ballerina.lib.activemq.util.TestProducer"
 } external;
+
+# Sends a request with a real JMS TemporaryQueue as JMSReplyTo, then waits for a reply on it.
+# Used to verify a responder preserves and reuses the temporary destination's identity.
+#
+# + brokerUrl - The broker URL (e.g., "tcp://localhost:61616")
+# + requestQueueName - The queue to send the request to
+# + requestPayload - The request message text
+# + timeoutMs - How long to wait for a reply
+# + return - The reply text, or "" if no reply arrived within the timeout or the round trip failed
+isolated function sendRequestAndAwaitTemporaryReply(string brokerUrl, string requestQueueName,
+        string requestPayload, int timeoutMs) returns string = @java:Method {
+    'class: "io.ballerina.lib.activemq.util.TestProducer"
+} external;

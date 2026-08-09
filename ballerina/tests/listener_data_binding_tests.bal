@@ -22,6 +22,8 @@ listener Listener dataBindingListener = check new Listener(brokerUrl, username =
 isolated string listenerDataBindingStringPayload = "";
 isolated record {|string name; int age;|} listenerDataBindingRecordPayload = {name: "", age: 0};
 isolated string listenerDataBindingErrorMessage = "";
+isolated byte[] listenerDataBindingUntypedTextPayload = [];
+isolated boolean listenerDataBindingMapMessageHandled = false;
 
 // TC-LISTENER-DATABIND-01: onMessage narrows Message's payload field to `string`
 @test:Config {
@@ -80,6 +82,78 @@ function testListenerOnMessageRecordPayload() returns error? {
     record {|string name; int age;|} received;
     lock { received = listenerDataBindingRecordPayload.clone(); }
     test:assertEquals(received, payload, "onMessage should receive the payload narrowed to a record via MapMessage");
+}
+
+// TC-LISTENER-DATABIND-02b: an unnarrowed activemq:Message payload for a TextMessage is byte[],
+// not string — this is the listener-side half of the untyped-receive byte[] fix.
+@test:Config {
+    groups: ["integration", "listener", "dataBinding"]
+}
+function testListenerOnMessageUntypedTextPayloadIsBytes() returns error? {
+    lock { listenerDataBindingUntypedTextPayload = []; }
+
+    Service untypedSvc = @ServiceConfig {
+        queueName: "it.listener.databind.untypedtext.queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+            if message.payload is byte[] {
+                lock { listenerDataBindingUntypedTextPayload = (<byte[]>message.payload).clone(); }
+            }
+        }
+    };
+    check dataBindingListener.attach(untypedSvc, "it-listener-databind-untypedtext-svc");
+
+    MessageProducer producer = check new (brokerUrl, username = username, password = password);
+    check producer->send({payload: "Untyped listener payload"},
+        {queueName: "it.listener.databind.untypedtext.queue"});
+    check producer->close();
+
+    runtime:sleep(5);
+    check dataBindingListener.detach(untypedSvc);
+
+    byte[] received = [];
+    lock { received = listenerDataBindingUntypedTextPayload.clone(); }
+    test:assertEquals(check string:fromBytes(received), "Untyped listener payload",
+        "an unnarrowed activemq:Message payload for a TextMessage should be byte[], not string");
+}
+
+// TC-LISTENER-DATABIND-02c: an unnarrowed activemq:Message payload for a MapMessage is a
+// map<Property>, not a crash — collapsing onto the shared conversion path fixes this for free.
+@test:Config {
+    groups: ["integration", "listener", "dataBinding"]
+}
+function testListenerOnMessageUntypedMapMessageDoesNotCrash() returns error? {
+    lock { listenerDataBindingMapMessageHandled = false; }
+    lock { listenerDataBindingErrorMessage = ""; }
+
+    Service untypedMapSvc = @ServiceConfig {
+        queueName: "it.listener.databind.untypedmap.queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+            if message.payload is map<Property> {
+                lock { listenerDataBindingMapMessageHandled = true; }
+            }
+        }
+        remote function onError(Error err) returns error? {
+            lock { listenerDataBindingErrorMessage = err.message(); }
+        }
+    };
+    check dataBindingListener.attach(untypedMapSvc, "it-listener-databind-untypedmap-svc");
+
+    MessageProducer producer = check new (brokerUrl, username = username, password = password);
+    record {|string name; int age;|} payload = {name: "Ana", age: 30};
+    check producer->send({payload}, {queueName: "it.listener.databind.untypedmap.queue"});
+    check producer->close();
+
+    runtime:sleep(5);
+    check dataBindingListener.detach(untypedMapSvc);
+
+    boolean handled = false;
+    string errorMessage = "";
+    lock { handled = listenerDataBindingMapMessageHandled; }
+    lock { errorMessage = listenerDataBindingErrorMessage; }
+    test:assertTrue(handled, "an unnarrowed listener should receive a MapMessage as map<Property>, not crash");
+    test:assertEquals(errorMessage, "", "no onError should fire for a MapMessage with an unnarrowed parameter");
 }
 
 // TC-LISTENER-DATABIND-03: a payload type that doesn't fit the actual message is routed to onError

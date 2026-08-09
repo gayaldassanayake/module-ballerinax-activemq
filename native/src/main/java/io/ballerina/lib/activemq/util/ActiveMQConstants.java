@@ -77,6 +77,7 @@ public interface ActiveMQConstants {
     BString MESSAGE_SELECTOR = StringUtils.fromString("messageSelector");
     BString QUEUE_NAME = StringUtils.fromString("queueName");
     BString TOPIC_NAME = StringUtils.fromString("topicName");
+    BString TEMPORARY = StringUtils.fromString("temporary");
     BString SESSION_ACK_MODE = StringUtils.fromString("sessionAckMode");
     BString NO_LOCAL = StringUtils.fromString("noLocal");
     BString CONSUMER_TYPE = StringUtils.fromString("consumerType");

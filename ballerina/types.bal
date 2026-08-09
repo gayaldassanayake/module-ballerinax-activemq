@@ -35,14 +35,18 @@ public type Service distinct service object {};
 
 # Represents a queue destination for point-to-point messaging.
 public type Queue record {|
-    # The name of the queue.
+    # The name of the queue. Ignored when `temporary` is `true` — the broker assigns the name.
     string queueName;
+    # Whether this is a connection-scoped temporary queue rather than a regular, named one.
+    boolean temporary = false;
 |};
 
 # Represents a topic destination for publish/subscribe messaging.
 public type Topic record {|
-    # The name of the topic.
+    # The name of the topic. Ignored when `temporary` is `true` — the broker assigns the name.
     string topicName;
+    # Whether this is a connection-scoped temporary topic rather than a regular, named one.
+    boolean temporary = false;
 |};
 
 # Represents a JMS destination.
@@ -224,8 +228,8 @@ public type Message record {|
     string scheduledCron?;
 |};
 
-# Represents the allowed value types for a JMS message property.
-public type Property boolean|int|byte|float|string;
+# Represents the allowed value types for a JMS message property, and for a typed `MapMessage` entry.
+public type Property boolean|int|byte|float|string|byte[];
 
 # Defines the supported JMS message consumer types for ActiveMQ topic subscriptions.
 public enum ConsumerType {

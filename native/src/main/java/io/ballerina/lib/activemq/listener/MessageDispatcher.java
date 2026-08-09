@@ -136,9 +136,7 @@ public class MessageDispatcher {
                     args[idx++] = getCaller();
                     break;
                 case TypeTags.RECORD_TYPE_TAG:
-                    args[idx++] = TypeUtils.isSameType(Service.MSG_TYPE, referredType)
-                            ? MessageMapper.toBallerinaMessage(message)
-                            : MessageMapper.toBallerinaMessage(message, (RecordType) referredType);
+                    args[idx++] = MessageMapper.toBallerinaMessage(message, (RecordType) referredType);
                     break;
                 default:
                     throw new IllegalStateException("Unsupported parameter type: " + referredType);

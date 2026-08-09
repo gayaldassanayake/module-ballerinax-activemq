@@ -18,14 +18,18 @@
 
 package io.ballerina.lib.activemq.util;
 
+import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
 import jakarta.jms.Connection;
 import jakarta.jms.Destination;
 import jakarta.jms.JMSException;
+import jakarta.jms.Message;
+import jakarta.jms.MessageConsumer;
 import jakarta.jms.MessageProducer;
 import jakarta.jms.Session;
+import jakarta.jms.TemporaryQueue;
 import jakarta.jms.TextMessage;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.ActiveMQSslConnectionFactory;
@@ -483,6 +487,51 @@ public final class TestProducer {
             }
             if (connection != null) {
                 connection.close();
+            }
+        }
+    }
+
+    /**
+     * Sends a request with a real JMS TemporaryQueue as JMSReplyTo, then waits for a reply on
+     * that same temporary queue. Used to verify that a responder preserves and reuses the
+     * temporary destination's identity instead of recreating a same-named regular queue.
+     *
+     * @param brokerUrl       The broker URL
+     * @param requestQueueName The queue to send the request to
+     * @param requestPayload  The request message text
+     * @param timeoutMs       How long to wait for a reply
+     * @return The reply text, or "" if no reply arrived within the timeout or the round trip failed
+     */
+    public static BString sendRequestAndAwaitTemporaryReply(BString brokerUrl, BString requestQueueName,
+            BString requestPayload, long timeoutMs) {
+        Connection connection = null;
+        try {
+            ActiveMQConnectionFactory connectionFactory = createConnectionFactory(brokerUrl.getValue());
+            connection = connectionFactory.createConnection();
+            connection.start();
+
+            Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            Destination requestQueue = session.createQueue(requestQueueName.getValue());
+            TemporaryQueue replyQueue = session.createTemporaryQueue();
+            MessageConsumer replyConsumer = session.createConsumer(replyQueue);
+
+            MessageProducer producer = session.createProducer(requestQueue);
+            TextMessage request = session.createTextMessage(requestPayload.getValue());
+            request.setJMSReplyTo(replyQueue);
+            producer.send(request);
+
+            Message reply = replyConsumer.receive(timeoutMs);
+            String replyText = reply instanceof TextMessage textReply ? textReply.getText() : "";
+            return StringUtils.fromString(replyText);
+        } catch (Exception e) {
+            return StringUtils.fromString("");
+        } finally {
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (JMSException ignored) {
+                    // best-effort cleanup - ignore
+                }
             }
         }
     }
