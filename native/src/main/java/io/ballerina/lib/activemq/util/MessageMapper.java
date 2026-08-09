@@ -104,29 +104,13 @@ public class MessageMapper {
     private static final MapType BALLERINA_PROPERTY_TYPE = TypeCreator.createMapType(
             "Property", PROPERTY_TYPE, getModule());
 
-    /**
-     * Converts a JMS message to a Ballerina message record of the shape described by
-     * {@code bTypedesc}, extracting the payload as the type requested via the record's
-     * {@code payload} field (falling back to the JMS-message-appropriate representation when that
-     * field's declared type is {@code anydata}, i.e. the caller didn't narrow it).
-     *
-     * @throws ActiveMQDatabindingException if the payload cannot be converted to the requested type
-     */
+    /** Converts a JMS message to a Ballerina message record shaped by bTypedesc's payload field. */
     public static BMap<BString, Object> toBallerinaMessage(Message message, BTypedesc bTypedesc)
             throws JMSException {
         return toBallerinaMessage(message, resolveRecordType(bTypedesc.getDescribingType()));
     }
 
-    /**
-     * Converts a JMS message to a Ballerina message record of the given shape, extracting the
-     * payload as the type requested via the record's {@code payload} field (falling back to the
-     * JMS-message-appropriate representation when that field's declared type is {@code anydata}).
-     * Used both by {@link #toBallerinaMessage(Message, BTypedesc)} (the {@code receive()} path) and
-     * by the {@code Listener}'s dispatcher when a service's {@code onMessage} parameter narrows
-     * {@code activemq:Message}'s {@code payload} field to a specific type.
-     *
-     * @throws ActiveMQDatabindingException if the payload cannot be converted to the requested type
-     */
+    /** Converts a JMS message to a message record of the given shape; shared by receive() and the listener. */
     public static BMap<BString, Object> toBallerinaMessage(Message message, RecordType recordType)
             throws JMSException {
         BMap<BString, Object> result = ValueCreator.createRecordValue(recordType);
@@ -360,12 +344,7 @@ public class MessageMapper {
         return (RecordType) describingType;
     }
 
-    /**
-     * Converts a JMS destination to the public Ballerina Destination record, preserving the
-     * native destination as native data so {@link #toJmsDestination} can hand back the exact
-     * same object later (this is what keeps a temporary queue/topic's broker-assigned identity
-     * intact across a {@code replyTo} round trip).
-     */
+    /** Converts a JMS destination to a Destination record, stashing the native object for reuse by toJmsDestination. */
     static BMap<BString, Object> toBallerinaDestination(Destination destination) throws JMSException {
         BMap<BString, Object> result;
         if (destination instanceof TemporaryQueue queue) {
@@ -397,12 +376,7 @@ public class MessageMapper {
         return topic;
     }
 
-    /**
-     * Creates a JMS Destination from the public Ballerina Destination record. A record that came
-     * off a received message (stashed native destination present) reuses that exact object; a
-     * hand-built {@code temporary: true} record gets a fresh broker-assigned temporary
-     * queue/topic; otherwise a regular named destination is created as before.
-     */
+    /** Creates a JMS Destination, reusing a stashed native destination if present, else building one by name. */
     public static Destination toJmsDestination(Session session, BMap<BString, Object> destination)
             throws JMSException {
         Object nativeDestination = destination.getNativeData(NATIVE_DESTINATION);
@@ -421,11 +395,7 @@ public class MessageMapper {
         throw new JMSException("Invalid destination: expected queueName or topicName");
     }
 
-    /**
-     * Converts a Ballerina Message record to a JMS message, mapping all relevant headers, custom
-     * properties, and ActiveMQ scheduler properties when present. The payload's runtime type
-     * determines the kind of JMS message produced — see {@link #createOutgoingMessage}.
-     */
+    /** Converts a Message record to a JMS message, mapping headers, properties, and scheduler properties. */
     @SuppressWarnings("unchecked")
     public static Message toJmsMessage(Session session, BMap<BString, Object> bMsg) throws JMSException {
         Message jmsMsg = createOutgoingMessage(session, bMsg.get(MESSAGE_PAYLOAD));
@@ -489,11 +459,7 @@ public class MessageMapper {
         return jmsMsg;
     }
 
-    /**
-     * Creates a JMS message of the kind appropriate for the payload's runtime type: a {@code string}
-     * payload becomes a {@code TextMessage}, a byte array becomes a {@code BytesMessage}, and a
-     * map or record (both represented as {@code BMap} at runtime) becomes a {@code MapMessage}.
-     */
+    /** Creates a JMS message matching the payload's runtime type: string/byte[]/map -> Text/Bytes/MapMessage. */
     @SuppressWarnings("unchecked")
     private static Message createOutgoingMessage(Session session, Object payload) throws JMSException {
         if (payload instanceof BString bString) {

@@ -97,12 +97,7 @@ public class CommonUtils {
         };
     }
 
-    /**
-     * Runs a cleanup action and swallows any exception, so a failure while releasing a
-     * partially-initialized resource never masks the original error being returned to the caller.
-     *
-     * @param action the cleanup action to run
-     */
+    /** Runs a cleanup action and swallows any exception, so cleanup failure can't mask the original error. */
     public static void closeQuietly(ThrowingRunnable action) {
         try {
             action.run();
@@ -111,9 +106,7 @@ public class CommonUtils {
         }
     }
 
-    /**
-     * Functional interface for a cleanup action that can throw a checked exception.
-     */
+    /** Functional interface for a cleanup action that can throw a checked exception. */
     @FunctionalInterface
     public interface ThrowingRunnable {
         void run() throws Exception;

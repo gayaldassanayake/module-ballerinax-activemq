@@ -38,14 +38,7 @@ import static io.ballerina.lib.activemq.util.ActiveMQConstants.ACTIVEMQ_ERROR;
 import static io.ballerina.lib.activemq.util.CommonUtils.createError;
 import static io.ballerina.lib.activemq.util.CommonUtils.getAcknowledgementMode;
 
-/**
- * Native implementation of the Ballerina ActiveMQ MessageConsumer. Holds one persistent JMS
- * session and consumer for the instance's whole lifetime; every method that touches them is
- * synchronized on the shared {@link ConsumerState}, since a JMS {@code Session} is not
- * thread-safe and Ballerina's {@code isolated client class} permits concurrent remote calls.
- *
- * @since 0.1.0
- */
+/** Native MessageConsumer impl; every method synchronizes on ConsumerState since a JMS Session isn't thread-safe. */
 public final class Actions {
 
     private Actions() {

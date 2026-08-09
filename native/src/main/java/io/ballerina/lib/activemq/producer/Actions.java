@@ -35,14 +35,7 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.ACTIVEMQ_ERROR;
 import static io.ballerina.lib.activemq.util.CommonUtils.createError;
 
-/**
- * Native implementation of the Ballerina ActiveMQ MessageProducer. Holds one persistent JMS
- * session and producer for the instance's whole lifetime; every method that touches them is
- * synchronized on the shared {@link ProducerState}, since a JMS {@code Session} is not
- * thread-safe and Ballerina's {@code isolated client class} permits concurrent remote calls.
- *
- * @since 0.1.0
- */
+/** Native MessageProducer impl; every method synchronizes on ProducerState since a JMS Session isn't thread-safe. */
 public final class Actions {
 
     private Actions() {

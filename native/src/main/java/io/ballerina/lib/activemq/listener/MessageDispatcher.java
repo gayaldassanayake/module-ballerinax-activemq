@@ -45,16 +45,7 @@ import static io.ballerina.lib.activemq.util.ActiveMQConstants.ON_MESSAGE_METHOD
 import static io.ballerina.lib.activemq.util.CommonUtils.createError;
 import static io.ballerina.lib.activemq.util.ModuleUtils.getModule;
 
-/**
- * Dispatches JMS messages to the Ballerina ActiveMQ service. {@code onMessage} runs synchronously
- * on the calling thread — required because ActiveMQ ties automatic redelivery-to-listener (after a
- * transacted {@code Session.rollback()}) to the thread currently dispatching to the listener;
- * invoking the Ballerina callback from a separate thread (e.g. a spawned virtual thread) silently
- * breaks that redelivery. {@code onError} has no {@code Caller} access and no such constraint, so
- * it still runs on a virtual thread.
- *
- * @since 0.1.0
- */
+/** Dispatches JMS messages to the service; onMessage runs on the calling thread (ActiveMQ ties redelivery to it). */
 public class MessageDispatcher {
     private static final PrintStream ERR_OUT = System.err;
 
@@ -76,22 +67,12 @@ public class MessageDispatcher {
         this.session = session;
     }
 
-    /**
-     * Associates this dispatcher with the {@link MessageReceiver} it dispatches for, so a failing
-     * {@code onError} handler can stop delivery for that service (see {@link OnErrorCallback}).
-     *
-     * @param receiver  the message receiver for this dispatcher's service
-     */
+    /** Associates this dispatcher with its MessageReceiver, so a failing onError handler can stop delivery. */
     public void setReceiver(MessageReceiver receiver) {
         this.onErrorCallback.setReceiver(receiver);
     }
 
-    /**
-     * Dispatches a JMS message to the Ballerina service's onMessage method, synchronously on the
-     * calling thread (see class-level doc for why).
-     *
-     * @param message  the JMS message to dispatch
-     */
+    /** Dispatches a JMS message to the service's onMessage method, synchronously on the calling thread. */
     public void onMessage(Message message) {
         try {
             boolean isConcurrentSafe = nativeService.isOnMessageMethodIsolated();
@@ -112,19 +93,7 @@ public class MessageDispatcher {
         }
     }
 
-    /**
-     * Prepares the parameter array for invoking the Ballerina onMessage method. Matches parameters
-     * by type (Caller object or Message record) and populates them accordingly. A plain
-     * {@code activemq:Message} parameter keeps today's default conversion unchanged; a parameter
-     * that narrows {@code Message}'s {@code payload} field (validated at attach time by
-     * {@code Service.validateService}) is converted via the same typed payload binding
-     * {@code MessageConsumer.receive()} uses.
-     *
-     * @param message  the JMS message
-     * @return array of arguments for the Ballerina method invocation
-     * @throws JMSException if message conversion fails
-     * @throws ActiveMQDatabindingException if a narrowed payload type can't be bound from this message
-     */
+    /** Builds the onMessage argument array, converting Message via the same typed binding receive() uses. */
     private Object[] getOnMessageParams(Message message) throws JMSException {
         Parameter[] parameters = this.nativeService.getOnMessageMethod().getParameters();
         Object[] args = new Object[parameters.length];
