@@ -196,7 +196,6 @@ public final class Actions {
             if (state.closed) {
                 return null; // idempotent
             }
-            state.closed = true;
             try {
                 state.connection.stop();
             } catch (JMSException ignored) {
@@ -207,6 +206,7 @@ public final class Actions {
             } catch (JMSException e) {
                 return createError(ACTIVEMQ_ERROR, "Failed to close consumer: " + e.getMessage(), e);
             }
+            state.closed = true;
         }
         return null;
     }
