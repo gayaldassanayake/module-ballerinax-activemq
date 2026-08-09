@@ -90,17 +90,49 @@ public final class Actions {
     }
 
     public static Object receive(BObject bConsumer, long timeoutMs, BTypedesc bTypedesc) {
-        return execute(bConsumer, "receive message", state -> {
-            Message jmsMsg = state.consumer.receive(timeoutMs);
-            return jmsMsg == null ? null : MessageMapper.toBallerinaMessage(jmsMsg, bTypedesc);
-        });
+        return receiveFrom(bConsumer, bTypedesc, state -> state.consumer.receive(timeoutMs));
     }
 
     public static Object receiveNoWait(BObject bConsumer, BTypedesc bTypedesc) {
-        return execute(bConsumer, "receive message", state -> {
-            Message jmsMsg = state.consumer.receiveNoWait();
+        return receiveFrom(bConsumer, bTypedesc, state -> state.consumer.receiveNoWait());
+    }
+
+    @FunctionalInterface
+    private interface BlockingReceive {
+        Message run(ConsumerState state) throws JMSException;
+    }
+
+    // A timeout of 0 means "block indefinitely" per JMS, so this must not hold the state lock
+    // close()/'commit()/'rollback() need while blocked here. Closing the consumer/connection from
+    // another thread is defined by JMS to unblock a pending receive with null.
+    private static Object receiveFrom(BObject bConsumer, BTypedesc bTypedesc, BlockingReceive blockingReceive) {
+        ConsumerState state = (ConsumerState) bConsumer.getNativeData(NATIVE_STATE);
+        if (state == null) {
+            return createError(ACTIVEMQ_ERROR, "ActiveMQ consumer is not initialized");
+        }
+        synchronized (state) {
+            if (state.closed) {
+                return createError(ACTIVEMQ_ERROR, "ActiveMQ consumer is already closed");
+            }
+        }
+        try {
+            Message jmsMsg = blockingReceive.run(state);
+            synchronized (state) {
+                if (state.closed) {
+                    return null;
+                }
+            }
             return jmsMsg == null ? null : MessageMapper.toBallerinaMessage(jmsMsg, bTypedesc);
-        });
+        } catch (JMSException e) {
+            synchronized (state) {
+                if (state.closed) {
+                    return null;
+                }
+            }
+            return createError(ACTIVEMQ_ERROR, "Failed to receive message: " + e.getMessage(), e);
+        } catch (ActiveMQDatabindingException e) {
+            return createError(ACTIVEMQ_ERROR, e.getMessage(), e);
+        }
     }
 
     /**

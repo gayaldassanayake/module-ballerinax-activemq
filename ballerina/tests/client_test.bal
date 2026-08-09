@@ -550,6 +550,29 @@ function testConcurrentProducerSendIsThreadSafe() returns error? {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Test 17b: close() must not hang behind a concurrent, indefinitely-blocking
+// receive(0) on the same consumer.
+// ─────────────────────────────────────────────────────────────────────────────
+
+@test:Config {
+    groups: ["client", "concurrency"]
+}
+function testReceiveDoesNotDeadlockClose() returns error? {
+    string queueName = "client.test.receive.deadlock.queue";
+    check drainQueue(queueName);
+    MessageConsumer consumer = check new (BROKER_URL, destination = {queueName: queueName});
+
+    future<Message|Error?> f = start consumer->receive(0, Message);
+    runtime:sleep(1);
+
+    Error? closeResult = consumer->close();
+    test:assertTrue(closeResult is (), "close() must return promptly, not hang behind a blocking receive(0)");
+
+    Message|Error? received = wait f;
+    test:assertTrue(received is (), "a receive() blocked when the consumer closes should unblock with nil");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Test 18: A transacted producer's commit()/rollback() after close() returns an
 // Error instead of panicking.
 // ─────────────────────────────────────────────────────────────────────────────
