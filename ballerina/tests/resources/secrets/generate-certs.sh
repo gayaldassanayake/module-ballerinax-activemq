@@ -11,7 +11,7 @@ cd "$SCRIPT_DIR"
 echo "Generating SSL certificates for ActiveMQ testing..."
 
 # Clean up existing certificates
-rm -f *.jks *.p12 *.pem *.key
+rm -f -- ./*.jks ./*.p12 ./*.pem ./*.key
 
 # 1. Generate server keystore with self-signed certificate
 echo "1. Creating server keystore..."
@@ -77,7 +77,7 @@ mv client-keystore.jks.tmp client-keystore.jks
 mv client-truststore.jks.tmp client-truststore.jks
 
 # Clean up temporary files
-rm -f *.tmp
+rm -f -- ./*.tmp
 
 echo ""
 echo "Certificate generation complete!"
