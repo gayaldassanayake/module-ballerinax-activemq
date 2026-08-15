@@ -28,7 +28,7 @@ keytool -exportcert -alias server -keystore server-keystore.jks \
 echo "3. Creating client keystore..."
 keytool -genkeypair -alias client -keyalg RSA -keysize 2048 \
     -dname "CN=client,OU=Test,O=Ballerina,L=Colombo,ST=Western,C=LK" \
-    -validity 365 -keystore client-keystore.jks.tmp -storepass password -keypass password
+    -validity 365 -keystore client-keystore.jks.tmp -storetype JKS -storepass password -keypass password
 
 # 4. Export client certificate (temporary, for creating truststores)
 echo "4. Exporting client certificate..."
@@ -43,7 +43,7 @@ keytool -importcert -alias client -file client.crt.tmp \
 # 6. Create client truststore and import server certificate (temporary JKS)
 echo "6. Creating client truststore..."
 keytool -importcert -alias server -file server.crt.tmp \
-    -keystore client-truststore.jks.tmp -storepass password -noprompt
+    -keystore client-truststore.jks.tmp -storetype JKS -storepass password -noprompt
 
 # 7. Convert client keystore to PKCS12 format
 echo "7. Converting client keystore to PKCS12..."
