@@ -22,15 +22,18 @@ All examples connect to a local ActiveMQ broker. Start one with Docker:
 docker compose -f examples/docker-compose.yaml up -d
 ```
 
-This starts a broker reachable at `tcp://localhost:61616`, with credentials `admin`/`admin` - the
-defaults every example already uses. ActiveMQ creates queues on first use, so no provisioning step
-is needed beyond starting the broker.
+This starts a broker reachable at `tcp://localhost:61616` with credentials `admin`/`admin`, bound
+to `127.0.0.1` only. ActiveMQ creates queues on first use, so no provisioning step is needed beyond
+starting the broker.
 
 ## Running an Example
 
-Each example is an independent Ballerina project. Build and run it from its own directory:
+Each example is an independent Ballerina project. `brokerUrl` and `username` default to the values
+above, but `password` doesn't ship with a default - copy `Config.toml.example` to `Config.toml` in
+the example's directory first:
 
 ```bash
+cp Config.toml.example Config.toml
 bal run
 ```
 
