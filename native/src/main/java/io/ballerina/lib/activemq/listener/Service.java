@@ -158,7 +158,8 @@ public class Service {
         if (TypeUtils.isSameType(MSG_TYPE, candidateType)) {
             return true;
         }
-        if (!(candidateType instanceof RecordType candidateRecord) || !(MSG_TYPE instanceof RecordType msgRecord)) {
+        if (!(candidateType instanceof RecordType candidateRecord)
+                || !(TypeUtils.getReferredType(MSG_TYPE) instanceof RecordType msgRecord)) {
             return false;
         }
         Map<String, Field> candidateFields = candidateRecord.getFields();
