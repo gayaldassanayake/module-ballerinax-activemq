@@ -16,6 +16,7 @@
 
 import ballerina/lang.runtime;
 import ballerina/test;
+import ballerina/time;
 
 // Dedicated listener for client integration tests that need a subscriber (topic tests).
 listener Listener clientTestListener = check new Listener(BROKER_URL);
@@ -697,4 +698,36 @@ isolated function testClientConsumerTransactionDoubleCloseIdempotent() returns e
     check consumer->close();
     // Second close: () or Error are both acceptable; what matters is no panic.
     do { check consumer->close(); } on fail { }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 23: commit() must not run concurrently with an in-flight receive() on the
+// same session - a JMS Session is single-threaded, so commit() has to wait for a
+// blocked receive() to release the session before it can proceed.
+// ─────────────────────────────────────────────────────────────────────────────
+
+@test:Config {
+    groups: ["client", "concurrency"]
+}
+function testCommitWaitsForInFlightReceive() returns error? {
+    string queueName = "client.session.serialize.queue";
+    check drainQueue(queueName);
+    MessageConsumer consumer = check new (BROKER_URL,
+        ackMode = SESSION_TRANSACTED, destination = {queueName});
+
+    future<Message|Error?> f = start consumer->receive(2000, Message);
+    runtime:sleep(0.2); // let the receive() strand grab the session lock first
+
+    time:Utc before = time:utcNow();
+    check consumer->'commit();
+    time:Utc after = time:utcNow();
+
+    Message|Error? received = wait f;
+    test:assertTrue(received is (), "empty queue receive should time out with nil");
+
+    decimal elapsedSeconds = time:utcDiffSeconds(after, before);
+    test:assertTrue(elapsedSeconds > 1d,
+        "commit() must wait for the in-flight receive() to release the session, not run concurrently with it");
+
+    check consumer->close();
 }

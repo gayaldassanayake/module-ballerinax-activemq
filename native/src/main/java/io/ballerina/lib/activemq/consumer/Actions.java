@@ -38,7 +38,7 @@ import static io.ballerina.lib.activemq.util.ActiveMQConstants.ACTIVEMQ_ERROR;
 import static io.ballerina.lib.activemq.util.CommonUtils.createError;
 import static io.ballerina.lib.activemq.util.CommonUtils.getAcknowledgementMode;
 
-/** Native MessageConsumer impl; every method synchronizes on ConsumerState since a JMS Session isn't thread-safe. */
+/** Native MessageConsumer impl; sessionLock serializes session-level calls since a JMS Session isn't thread-safe. */
 public final class Actions {
 
     private Actions() {
@@ -51,6 +51,10 @@ public final class Actions {
         final Session session;
         final MessageConsumer consumer;
         final boolean transacted;
+        // Guards actual JMS session-level calls (receive/acknowledge/commit/rollback) so they
+        // never overlap on the single-threaded Session. close() never acquires this lock, so it
+        // can always unblock a pending receive() rather than wait behind it.
+        final Object sessionLock = new Object();
         volatile boolean closed = false;
 
         ConsumerState(Connection connection, Session session, MessageConsumer consumer, boolean transacted) {
@@ -108,9 +112,10 @@ public final class Actions {
         Message run(ConsumerState state) throws JMSException;
     }
 
-    // A timeout of 0 means "block indefinitely" per JMS, so this must not hold the state lock
-    // close()/'commit()/'rollback() need while blocked here. Closing the consumer/connection from
-    // another thread is defined by JMS to unblock a pending receive with null.
+    // A timeout of 0 means "block indefinitely" per JMS, so the blocking call only holds
+    // sessionLock (shared with acknowledge/commit/rollback), never the state monitor close() uses.
+    // Closing the consumer/connection from another thread is defined by JMS to unblock a pending
+    // receive with null, without close() ever waiting on sessionLock.
     private static Object receiveFrom(BObject bConsumer, BTypedesc bTypedesc, BlockingReceive blockingReceive) {
         ConsumerState state = (ConsumerState) bConsumer.getNativeData(NATIVE_STATE);
         if (state == null) {
@@ -122,7 +127,10 @@ public final class Actions {
             }
         }
         try {
-            Message jmsMsg = blockingReceive.run(state);
+            Message jmsMsg;
+            synchronized (state.sessionLock) {
+                jmsMsg = blockingReceive.run(state);
+            }
             synchronized (state) {
                 if (state.closed) {
                     return null;
@@ -147,7 +155,8 @@ public final class Actions {
     }
 
     // Operates on the native JMS message stashed by receiveFrom(); the same-session ConsumerState
-    // stashed alongside it is used to synchronize with receive()/close() on that session.
+    // stashed alongside it gives us sessionLock, so this can't overlap with a receive/commit/rollback
+    // on that session.
     public static Object acknowledge(BMap<BString, Object> message) {
         Object nativeMessage = message.getNativeData(MessageMapper.NATIVE_MESSAGE);
         if (!(nativeMessage instanceof Message jmsMsg)) {
@@ -155,7 +164,7 @@ public final class Actions {
         }
         Object nativeState = message.getNativeData(NATIVE_STATE);
         if (nativeState instanceof ConsumerState state) {
-            synchronized (state) {
+            synchronized (state.sessionLock) {
                 return doAcknowledge(jmsMsg);
             }
         }
@@ -228,6 +237,11 @@ public final class Actions {
             return createError(ACTIVEMQ_ERROR, "ActiveMQ consumer is not initialized");
         }
         synchronized (state) {
+            if (state.closed) {
+                return createError(ACTIVEMQ_ERROR, "ActiveMQ consumer is already closed");
+            }
+        }
+        synchronized (state.sessionLock) {
             if (state.closed) {
                 return createError(ACTIVEMQ_ERROR, "ActiveMQ consumer is already closed");
             }
