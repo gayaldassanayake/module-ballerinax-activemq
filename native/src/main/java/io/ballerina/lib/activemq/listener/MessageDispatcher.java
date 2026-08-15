@@ -88,8 +88,21 @@ public class MessageDispatcher {
             onError(bError);
         } catch (JMSException e) {
             onError(e);
+            throw new ActiveMQMessageProcessingException(e);
         } catch (ActiveMQDatabindingException e) {
             onError(e);
+            throw new ActiveMQMessageProcessingException(e);
+        }
+    }
+
+    // Thrown only for delivery-mechanics failures (JMSException/ActiveMQDatabindingException),
+    // never for a BError the service itself threw or returned - the session must not acknowledge
+    // one of these so AUTO_ACKNOWLEDGE/DUPS_OK_ACKNOWLEDGE sessions let ActiveMQ redeliver it.
+    private static final class ActiveMQMessageProcessingException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        ActiveMQMessageProcessingException(Throwable cause) {
+            super(cause);
         }
     }
 

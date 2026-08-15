@@ -262,6 +262,11 @@ function testItListenerSequentialProcessing() returns error? {
 
 // TC-LISTENER-07: An unexpected JMS message type (ObjectMessage) must not hang the service's
 // delivery loop — the next text message on the same queue must still be delivered (task 13).
+// A data-binding failure now makes MessageDispatcher rethrow so the session doesn't acknowledge
+// it, so the ObjectMessage genuinely goes through ActiveMQ's default redelivery policy (~6
+// retries, ~1s apart) before landing in the DLQ - poll for the follow-up instead of a fixed
+// sleep, since that redelivery run takes noticeably longer under full-suite load than in
+// isolation.
 @test:Config {
     groups: ["integration", "listener"]
 }
@@ -283,7 +288,6 @@ function testItListenerUnsupportedMessageTypeDoesNotHang() returns error? {
     check itListener.attach(objMsgSvc, "it-objmsg-svc");
 
     check sendObjectMessageToQueue(brokerUrl, "it.listener.objmsg.queue", "unsupported-payload");
-    runtime:sleep(2);
 
     MessageProducer prod = check new (brokerUrl, username = username, password = password);
     check prod->send({
@@ -292,12 +296,16 @@ function testItListenerUnsupportedMessageTypeDoesNotHang() returns error? {
     }, {queueName: "it.listener.objmsg.queue"});
     check prod->close();
 
-    runtime:sleep(3);
+    int textCount = 0;
+    int attempts = 0;
+    while textCount < 1 && attempts < 30 {
+        runtime:sleep(1);
+        lock { textCount = itListenerObjMsgTextCount; }
+        attempts += 1;
+    }
 
     int errorCount = 0;
-    int textCount = 0;
     lock { errorCount = itListenerObjMsgErrorCount; }
-    lock { textCount = itListenerObjMsgTextCount; }
     test:assertTrue(errorCount >= 1, "onError should be invoked for the unsupported ObjectMessage");
     test:assertTrue(textCount >= 1,
         "the service must still receive the follow-up text message — the delivery loop must not hang");
