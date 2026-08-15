@@ -23,7 +23,7 @@ bal run
 Expected output (once [Send To Queue](../send-to-queue/Send%20To%20Queue.md) runs in another
 terminal):
 
-```
+```text
 time=... level=INFO ... msg="Processing order" payload="{\"orderId\":\"ORD-1001\",...}"
 time=... level=INFO ... msg="Processing order" payload="{\"orderId\":\"ORD-1002\",...}"
 time=... level=INFO ... msg="Processing order" payload="{\"orderId\":\"ORD-1003\",...}"

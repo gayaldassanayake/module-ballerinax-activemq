@@ -20,7 +20,7 @@ bal run
 
 Expected output (after running [Send To Queue](../send-to-queue/Send%20To%20Queue.md)):
 
-```
+```text
 Received order: {"orderId":"ORD-1001", "item":"Wireless Mouse", "quantity":2}
 Received order: {"orderId":"ORD-1002", "item":"Mechanical Keyboard", "quantity":1}
 Received order: {"orderId":"ORD-1003", "item":"USB-C Hub", "quantity":3}

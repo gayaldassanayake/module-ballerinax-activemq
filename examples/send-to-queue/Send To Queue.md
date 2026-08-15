@@ -20,7 +20,7 @@ bal run
 
 Expected output:
 
-```
+```text
 time=... level=INFO ... msg="Order placed" orderId=ORD-1001 item="Wireless Mouse"
 time=... level=INFO ... msg="Order placed" orderId=ORD-1002 item="Mechanical Keyboard"
 time=... level=INFO ... msg="Order placed" orderId=ORD-1003 item="USB-C Hub"
