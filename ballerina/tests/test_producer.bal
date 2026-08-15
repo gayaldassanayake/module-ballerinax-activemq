@@ -86,6 +86,15 @@ isolated function sendObjectMessageToQueue(string brokerUrl, string queueName, s
     'class: "io.ballerina.lib.activemq.util.TestProducer"
 } external;
 
+# Send a TextMessage with no body set - JMS legally allows a text message with a null body.
+#
+# + brokerUrl - The broker URL (e.g., "tcp://localhost:61616")
+# + queueName - The queue name
+# + return - Error if sending fails
+isolated function sendTextMessageWithNullBody(string brokerUrl, string queueName) returns error? = @java:Method {
+    'class: "io.ballerina.lib.activemq.util.TestProducer"
+} external;
+
 # Send a message with all JMS headers set (for testing message field mapping)
 #
 # + brokerUrl - The broker URL (e.g., "tcp://localhost:61616")

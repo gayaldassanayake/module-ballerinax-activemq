@@ -238,7 +238,8 @@ public class MessageMapper {
         // ObjectMessage/StreamMessage: only the untyped/default case falls back to today's behavior;
         // a specific requested type has no dispatch logic to honor it.
         if (typeTag == TypeTags.ANYDATA_TAG) {
-            byte[] fallback = message.getBody(String.class).getBytes(StandardCharsets.UTF_8);
+            String body = message.getBody(String.class);
+            byte[] fallback = (body != null ? body : "").getBytes(StandardCharsets.UTF_8);
             return ValueCreator.createArrayValue(fallback);
         }
         throw new ActiveMQDatabindingException(String.format(
@@ -248,14 +249,17 @@ public class MessageMapper {
 
     private static Object getPayloadFromTextMessage(TextMessage message, Type payloadType, int typeTag)
             throws JMSException {
+        // TextMessage.getText() legally returns null for a message with no body.
+        String rawText = message.getText();
+        String text = rawText != null ? rawText : "";
         if (typeTag == TypeTags.ANYDATA_TAG) {
-            return ValueCreator.createArrayValue(message.getText().getBytes(StandardCharsets.UTF_8));
+            return ValueCreator.createArrayValue(text.getBytes(StandardCharsets.UTF_8));
         }
         if (typeTag == TypeTags.STRING_TAG) {
-            return StringUtils.fromString(message.getText());
+            return StringUtils.fromString(text);
         }
         if (typeTag == TypeTags.XML_TAG) {
-            return XmlUtils.parse(message.getText());
+            return XmlUtils.parse(text);
         }
         throw new ActiveMQDatabindingException(
                 String.format("Data binding failed: Cannot bind TextMessage to type '%s'. "

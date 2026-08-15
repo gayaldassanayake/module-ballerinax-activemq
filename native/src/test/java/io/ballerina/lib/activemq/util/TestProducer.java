@@ -584,4 +584,45 @@ public final class TestProducer {
             }
         }
     }
+
+    /**
+     * Sends a TextMessage with no body set - {@code TextMessage.getText()} legally returns null
+     * for this. Used to verify a null body is handled instead of throwing a NullPointerException.
+     *
+     * @param brokerUrl The broker URL
+     * @param queueName The queue name
+     * @throws JMSException If message sending fails
+     */
+    public static void sendTextMessageWithNullBody(BString brokerUrl, BString queueName) throws JMSException {
+        Connection connection = null;
+        Session session = null;
+        MessageProducer producer = null;
+
+        try {
+            ActiveMQConnectionFactory connectionFactory = createConnectionFactory(brokerUrl.getValue());
+            connection = connectionFactory.createConnection();
+            connection.start();
+
+            session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            Destination destination = session.createQueue(queueName.getValue());
+            producer = session.createProducer(destination);
+
+            TextMessage textMessage = session.createTextMessage();
+            producer.send(textMessage);
+        } catch (JMSException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new JMSException("Failed to create connection: " + e.getMessage());
+        } finally {
+            if (producer != null) {
+                producer.close();
+            }
+            if (session != null) {
+                session.close();
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        }
+    }
 }

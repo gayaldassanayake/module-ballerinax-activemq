@@ -60,6 +60,36 @@ function testDataBindingUntypedTextMessageIsBytes() returns error? {
     }
 }
 
+// TC-DATABIND-01c: TextMessage.getText() legally returns null for a message with no body — both
+// the typed 'string' binding and the untyped byte[] binding must handle that as empty, not NPE.
+@test:Config {
+    groups: ["integration", "dataBinding"]
+}
+function testDataBindingNullTextMessageBodyDoesNotPanic() returns error? {
+    check drainQueue("it.databind.nulltext.queue");
+    check sendTextMessageWithNullBody(brokerUrl, "it.databind.nulltext.queue");
+
+    MessageConsumer typedConsumer = check new (brokerUrl,
+        username = username, password = password, destination = {queueName: "it.databind.nulltext.queue"});
+    record {|*Message; string payload;|}? typedReceived = check typedConsumer->receive(5000);
+    check typedConsumer->close();
+    test:assertTrue(typedReceived is Message, "should receive the null-body message");
+    if typedReceived is Message {
+        test:assertEquals(typedReceived.payload, "", "a null TextMessage body should bind to an empty string");
+    }
+
+    check sendTextMessageWithNullBody(brokerUrl, "it.databind.nulltext.queue");
+    MessageConsumer untypedConsumer = check new (brokerUrl,
+        username = username, password = password, destination = {queueName: "it.databind.nulltext.queue"});
+    Message? untypedReceived = check untypedConsumer->receive(5000);
+    check untypedConsumer->close();
+    test:assertTrue(untypedReceived is Message, "should receive the null-body message");
+    if untypedReceived is Message {
+        test:assertEquals(untypedReceived.payload, [],
+            "a null TextMessage body should bind to an empty byte[] on the untyped path");
+    }
+}
+
 // TC-DATABIND-02: a record payload round-trips via MapMessage
 @test:Config {
     groups: ["integration", "dataBinding"]
