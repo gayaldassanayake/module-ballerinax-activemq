@@ -14,15 +14,20 @@ public function main() returns error? {
         destination = {queueName: ORDERS_QUEUE}
     );
 
-    int received = 0;
-    while received < 3 {
-        record {|*activemq:Message; string payload;|}? msg = check consumer->receive(5000);
-        if msg is () {
-            io:println("No more messages within the timeout, stopping.");
-            break;
+    do {
+        int received = 0;
+        while received < 3 {
+            record {|*activemq:Message; string payload;|}? msg = check consumer->receive(5000);
+            if msg is () {
+                io:println("No more messages within the timeout, stopping.");
+                break;
+            }
+            io:println("Received order: ", msg.payload);
+            received += 1;
         }
-        io:println("Received order: ", msg.payload);
-        received += 1;
+    } on fail error receiveErr {
+        check consumer->close();
+        return receiveErr;
     }
 
     check consumer->close();
