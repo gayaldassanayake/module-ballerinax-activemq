@@ -22,11 +22,16 @@ public function main() returns error? {
         {orderId: "ORD-1003", item: "USB-C Hub", quantity: 3}
     ];
 
-    foreach Order 'order in orders {
-        check producer->send({
-            payload: 'order.toJsonString()
-        }, {queueName: ORDERS_QUEUE});
-        log:printInfo("Order placed", orderId = 'order.orderId, item = 'order.item);
+    do {
+        foreach Order 'order in orders {
+            check producer->send({
+                payload: 'order.toJsonString()
+            }, {queueName: ORDERS_QUEUE});
+            log:printInfo("Order placed", orderId = 'order.orderId, item = 'order.item);
+        }
+    } on fail error sendErr {
+        check producer->close();
+        return sendErr;
     }
 
     check producer->close();
