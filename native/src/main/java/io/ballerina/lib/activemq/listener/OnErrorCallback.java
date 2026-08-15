@@ -31,7 +31,7 @@ import java.io.PrintStream;
 public class OnErrorCallback {
     private static final PrintStream ERR_OUT = System.err;
 
-    private MessageReceiver receiver;
+    private volatile MessageReceiver receiver;
 
     public void setReceiver(MessageReceiver receiver) {
         this.receiver = receiver;
