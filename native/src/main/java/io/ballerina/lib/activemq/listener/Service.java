@@ -20,6 +20,7 @@ package io.ballerina.lib.activemq.listener;
 
 import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
+import io.ballerina.runtime.api.flags.SymbolFlags;
 import io.ballerina.runtime.api.types.Field;
 import io.ballerina.runtime.api.types.Parameter;
 import io.ballerina.runtime.api.types.RecordType;
@@ -171,6 +172,13 @@ public class Service {
             if (candidateField == null || !TypeUtils.isSameType(
                     TypeUtils.getReferredType(entry.getValue().getFieldType()),
                     TypeUtils.getReferredType(candidateField.getFieldType()))) {
+                return false;
+            }
+            // A field activemq:Message only sets when the JMS message actually carries it must
+            // not be declared required on the candidate - it can legitimately be absent at runtime.
+            boolean msgFieldOptional = SymbolFlags.isFlagOn(entry.getValue().getFlags(), SymbolFlags.OPTIONAL);
+            boolean candidateFieldRequired = !SymbolFlags.isFlagOn(candidateField.getFlags(), SymbolFlags.OPTIONAL);
+            if (msgFieldOptional && candidateFieldRequired) {
                 return false;
             }
         }

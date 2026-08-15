@@ -160,3 +160,26 @@ isolated function testSvcWithInvalidOnErrorParams() returns error? {
                 "Expected error about invalid onError parameter");
     }
 }
+
+// activemq:Message declares correlationId as optional (it's only set when the JMS message
+// actually carries one), so a narrowed onMessage record must not make it required — that field
+// could legitimately be absent at runtime, leaving a required field unset.
+@test:Config {
+    groups: ["service", "validations"]
+}
+isolated function testSvcWithRequiredFieldOptionalOnMessage() returns error? {
+    Service svc = @ServiceConfig {
+        queueName: "test-svc-required-field"
+    } service object {
+        remote function onMessage(record {|*Message; string payload; string correlationId;|} message)
+                returns error? {
+        }
+    };
+    Error? result = activemqListener.attach(svc);
+    test:assertTrue(result is Error);
+    if result is Error {
+        test:assertTrue(
+                result.message().includes("onMessage method parameters must be of type 'activemq:Message'"),
+                "Expected error about an incompatible onMessage parameter type");
+    }
+}
