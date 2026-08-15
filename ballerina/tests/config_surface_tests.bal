@@ -128,6 +128,7 @@ isolated int itConfigRedeliveryAttempts = 0;
     groups: ["integration", "config-surface"]
 }
 function testConfigSurfaceRedeliveryPolicyDeadLetterQueue() returns error? {
+    check drainQueue("it.config.redelivery.queue");
     lock { itConfigRedeliveryAttempts = 0; }
     Listener redeliveryListener = check new (brokerUrl,
         username = username, password = password,

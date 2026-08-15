@@ -421,6 +421,7 @@ isolated function testClientTransactionCommit() returns error? {
     groups: ["client", "transaction"]
 }
 isolated function testClientTransactionRollback() returns error? {
+    check drainQueue("client.tx.rollback.queue");
     MessageProducer producer = check new (BROKER_URL, transacted = true);
     check producer->send({
         messageId: "tx-rb-1",
@@ -444,6 +445,7 @@ isolated function testClientTransactionRollback() returns error? {
     groups: ["client", "transaction"]
 }
 isolated function testClientTransactionCloseRollsBack() returns error? {
+    check drainQueue("client.tx.close.queue");
     MessageProducer producer = check new (BROKER_URL, transacted = true);
     check producer->send({
         messageId: "tx-close-1",

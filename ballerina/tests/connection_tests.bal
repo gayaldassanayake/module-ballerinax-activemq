@@ -24,7 +24,7 @@ configurable string password = "admin";
 
 // Drain all messages from a queue so tests start with a clean slate even when
 // a previous run left unconsumed messages behind.
-function drainQueue(string queueName) returns error? {
+isolated function drainQueue(string queueName) returns error? {
     MessageConsumer drainer = check new (brokerUrl,
         username = username, password = password, destination = {queueName: queueName});
     error? drainError = ();

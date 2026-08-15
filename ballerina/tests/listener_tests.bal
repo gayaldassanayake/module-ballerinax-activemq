@@ -217,6 +217,7 @@ function testItListenerPushDeliveryIsFast() returns error? {
     groups: ["integration", "listener"]
 }
 function testItListenerSequentialProcessing() returns error? {
+    check drainQueue("it.listener.sequential.queue");
     lock { itListenerConcurrentActive = 0; }
     lock { itListenerOverlapDetected = false; }
     lock { itListenerConcurrentProcessed = 0; }
