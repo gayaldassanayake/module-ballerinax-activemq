@@ -35,7 +35,7 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 import static io.ballerina.lib.activemq.util.ActiveMQConstants.ACTIVEMQ_ERROR;
 import static io.ballerina.lib.activemq.util.CommonUtils.createError;
 
-/** Native MessageProducer impl; every method synchronizes on ProducerState since a JMS Session isn't thread-safe. */
+/** Native MessageProducer impl; sessionLock serializes session-level calls since a JMS Session isn't thread-safe. */
 public final class Actions {
 
     private Actions() {
@@ -49,6 +49,9 @@ public final class Actions {
         final MessageProducer producer;
         final boolean transacted;
         final BMap<BString, Object> defaultDestination;
+        // Guards actual JMS session-level calls (send/commit/rollback). close() never acquires
+        // this lock, so it can proceed even while a send() is blocked on producer flow control.
+        final Object sessionLock = new Object();
         volatile boolean closed = false;
 
         ProducerState(Connection connection, Session session, MessageProducer producer, boolean transacted,
@@ -170,6 +173,11 @@ public final class Actions {
             return createError(ACTIVEMQ_ERROR, "ActiveMQ producer is not initialized");
         }
         synchronized (state) {
+            if (state.closed) {
+                return createError(ACTIVEMQ_ERROR, "ActiveMQ producer is already closed");
+            }
+        }
+        synchronized (state.sessionLock) {
             if (state.closed) {
                 return createError(ACTIVEMQ_ERROR, "ActiveMQ producer is already closed");
             }
