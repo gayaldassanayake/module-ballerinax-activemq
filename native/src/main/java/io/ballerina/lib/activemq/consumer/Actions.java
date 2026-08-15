@@ -184,7 +184,7 @@ public final class Actions {
         return execute(bConsumer, "commit transaction", state -> {
             if (!state.transacted) {
                 throw new JMSException(
-                        "'commit is only valid when the consumer is configured with ackMode: SESSION_TRANSACTED");
+                        "'commit' is only valid when the consumer is configured with ackMode: SESSION_TRANSACTED");
             }
             state.session.commit();
             return null;
@@ -195,7 +195,7 @@ public final class Actions {
         return execute(bConsumer, "rollback transaction", state -> {
             if (!state.transacted) {
                 throw new JMSException(
-                        "'rollback is only valid when the consumer is configured with ackMode: SESSION_TRANSACTED");
+                        "'rollback' is only valid when the consumer is configured with ackMode: SESSION_TRANSACTED");
             }
             state.session.rollback();
             return null;

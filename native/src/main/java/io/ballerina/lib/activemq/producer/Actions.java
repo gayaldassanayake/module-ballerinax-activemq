@@ -115,7 +115,7 @@ public final class Actions {
         return execute(bProducer, "commit transaction", state -> {
             if (!state.transacted) {
                 throw new JMSException(
-                        "'commit is only valid when the producer is configured with transacted: true");
+                        "'commit' is only valid when the producer is configured with transacted: true");
             }
             state.session.commit();
             return null;
@@ -126,7 +126,7 @@ public final class Actions {
         return execute(bProducer, "rollback transaction", state -> {
             if (!state.transacted) {
                 throw new JMSException(
-                        "'rollback is only valid when the producer is configured with transacted: true");
+                        "'rollback' is only valid when the producer is configured with transacted: true");
             }
             state.session.rollback();
             return null;
