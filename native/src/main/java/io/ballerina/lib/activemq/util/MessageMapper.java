@@ -437,6 +437,11 @@ public class MessageMapper {
                 } else if (val instanceof Integer i) {
                     // Ballerina `byte` is boxed as Integer here, not Byte.
                     jmsMsg.setByteProperty(propName, i.byteValue());
+                } else if (val != null) {
+                    LOGGER.warning(() -> String.format(
+                            "Dropped message property '%s' of unsupported type '%s' - JMS message properties "
+                                    + "support only boolean, int, byte, float, and string values",
+                            propName, val.getClass().getSimpleName()));
                 }
             }
         }

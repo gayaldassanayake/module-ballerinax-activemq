@@ -535,6 +535,40 @@ isolated function testClientPropertyTypesRoundtrip() returns error? {
     }
 }
 
+// TC-PROPS-01: a byte[] property is a legal `Property` value but JMS message properties don't
+// support byte[] (only MapMessage entries do) - send() must drop it gracefully, not crash or
+// send a malformed message. (The dropped-with-a-warning behavior itself isn't independently
+// assertable from a Ballerina test, since it's a native-side log line.)
+@test:Config {
+    groups: ["client"]
+}
+isolated function testClientSendWithUnsupportedPropertyTypeDoesNotFail() returns error? {
+    check drainQueue("client.test.unsupportedprop.queue");
+    MessageProducer producer = check new (BROKER_URL);
+    check producer->send({
+        payload: "unsupported property".toBytes(),
+        properties: {
+            "strProp": "hello",
+            "bytesProp": "unsupported".toBytes()
+        }
+    }, {queueName: "client.test.unsupportedprop.queue"});
+    check producer->close();
+
+    MessageConsumer consumer = check new (BROKER_URL,
+        destination = {queueName: "client.test.unsupportedprop.queue"});
+    Message? received = check consumer->receive(5000);
+    check consumer->close();
+    test:assertTrue(received is Message, "should still receive the message");
+    if received is Message {
+        map<Property>? props = received.properties;
+        test:assertTrue(props is map<Property>, "the other, supported property should still be present");
+        if props is map<Property> {
+            test:assertEquals(props["strProp"], "hello");
+            test:assertFalse(props.hasKey("bytesProp"), "the unsupported byte[] property should be dropped");
+        }
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Test 17: Concurrent send() calls on one MessageProducer are serialized safely.
 // MessageProducer now holds one persistent JMS Session for its whole lifetime
