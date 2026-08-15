@@ -88,7 +88,9 @@ public class MessageReceiver implements MessageListener {
      * @throws Exception if an error occurs during shutdown
      */
     public void stop() throws Exception {
-        closed.set(true);
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
         Thread closer = new Thread(() -> {
             try {
                 this.consumer.close();
@@ -100,6 +102,9 @@ public class MessageReceiver implements MessageListener {
         closer.start();
         try {
             closer.join(STOP_TIMEOUT_MS);
+            if (closer.isAlive()) {
+                throw new JMSException("Timed out while closing the ActiveMQ consumer and session");
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
