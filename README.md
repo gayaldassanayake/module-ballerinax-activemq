@@ -165,7 +165,7 @@ Use a `Topic` destination when calling `send`:
 
 ```ballerina
 check producer->send({
-    messageId: "evt-001",
+    correlationId: "evt-001",
     payload: "order placed".toBytes()
 }, {topicName: "order.events"});
 ```
@@ -177,8 +177,8 @@ atomic operation:
 
 ```ballerina
 activemq:MessageProducer producer = check new ("tcp://localhost:61616", transacted = true);
-check producer->send({messageId: "tx-1", payload: "order A".toBytes()}, {queueName: "orders.queue"});
-check producer->send({messageId: "tx-2", payload: "audit A".toBytes()}, {queueName: "audit.queue"});
+check producer->send({correlationId: "tx-1", payload: "order A".toBytes()}, {queueName: "orders.queue"});
+check producer->send({correlationId: "tx-2", payload: "audit A".toBytes()}, {queueName: "audit.queue"});
 check producer->'commit();   // both messages are delivered together
 check producer->close();
 ```
