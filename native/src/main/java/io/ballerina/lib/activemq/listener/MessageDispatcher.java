@@ -72,7 +72,7 @@ public class MessageDispatcher {
         this.onErrorCallback.setReceiver(receiver);
     }
 
-    /** Dispatches a JMS message to the service's onMessage method, synchronously on the calling thread. */
+    /** Dispatches a JMS message to onMessage; a returned error goes to onError, a panic is only logged. */
     public void onMessage(Message message) {
         try {
             boolean isConcurrentSafe = nativeService.isOnMessageMethodIsolated();
@@ -81,11 +81,10 @@ public class MessageDispatcher {
             Object result = ballerinaRuntime.callMethod(
                     nativeService.getConsumerService(), ON_MESSAGE_METHOD, metadata, params);
             if (result instanceof BError bError) {
-                bError.printStackTrace();
+                onError(bError);
             }
         } catch (BError bError) {
             bError.printStackTrace();
-            onError(bError);
         } catch (JMSException e) {
             onError(e);
             throw new ActiveMQMessageProcessingException(e);
@@ -95,9 +94,7 @@ public class MessageDispatcher {
         }
     }
 
-    // Thrown only for delivery-mechanics failures (JMSException/ActiveMQDatabindingException),
-    // never for a BError the service itself threw or returned - the session must not acknowledge
-    // one of these so AUTO_ACKNOWLEDGE/DUPS_OK_ACKNOWLEDGE sessions let ActiveMQ redeliver it.
+    // Thrown only for delivery-mechanics failures, never a service BError, so the session won't ack it.
     private static final class ActiveMQMessageProcessingException extends RuntimeException {
         private static final long serialVersionUID = 1L;
 

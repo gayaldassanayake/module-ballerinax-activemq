@@ -32,6 +32,9 @@ isolated int itListenerConcurrentProcessed = 0;
 isolated int itListenerObjMsgErrorCount = 0;
 isolated int itListenerObjMsgTextCount = 0;
 isolated int itListenerUnrelatedCount = 0;
+isolated int itListenerReturnedErrorOnErrorCount = 0;
+isolated int itListenerPanicOnErrorCount = 0;
+isolated int itListenerPanicFollowupCount = 0;
 
 // TC-LISTENER-01: Listener receives TextMessage from queue within 5 seconds
 @test:Config {
@@ -356,6 +359,100 @@ function testItListenerFailingOnErrorDoesNotCrashRuntime() returns error? {
     lock { unrelatedCount = itListenerUnrelatedCount; }
     test:assertTrue(unrelatedCount >= 1,
         "a failing onError handler must not crash the runtime — other services must keep working");
+}
+
+// TC-LISTENER-09: onMessage returning an activemq:Error - the documented graceful-failure signal -
+// must be routed to onError.
+@test:Config {
+    groups: ["integration", "listener"]
+}
+function testItListenerReturnedErrorGoesToOnError() returns error? {
+    lock { itListenerReturnedErrorOnErrorCount = 0; }
+
+    Service returnedErrorSvc = @ServiceConfig {
+        queueName: "it.listener.returnederror.queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+            return error("intentional returned error for test coverage");
+        }
+
+        remote function onError(Error err) returns error? {
+            lock { itListenerReturnedErrorOnErrorCount += 1; }
+        }
+    };
+    check itListener.attach(returnedErrorSvc, "it-returnederror-svc");
+
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
+        messageId: "it-returnederror-01",
+        payload: "trigger returned error".toBytes()
+    }, {queueName: "it.listener.returnederror.queue"});
+    check prod->close();
+
+    runtime:sleep(3);
+    check itListener.detach(returnedErrorSvc);
+
+    int errorCount = 0;
+    lock { errorCount = itListenerReturnedErrorOnErrorCount; }
+    test:assertTrue(errorCount >= 1, "onMessage returning an error should be routed to onError");
+}
+
+// TC-LISTENER-10: an onMessage panic is an unexpected service bug, not a graceful failure signal -
+// it must only be logged, never routed to onError, and must not hang delivery of later messages.
+@test:Config {
+    groups: ["integration", "listener"]
+}
+function testItListenerOnMessagePanicDoesNotGoToOnError() returns error? {
+    lock { itListenerPanicOnErrorCount = 0; }
+    lock { itListenerPanicFollowupCount = 0; }
+
+    Service panicSvc = @ServiceConfig {
+        queueName: "it.listener.panic.queue"
+    } service object {
+        remote function onMessage(Message message) returns error? {
+            string payload = check string:fromBytes(check message.payload.ensureType());
+            if payload == "trigger panic" {
+                panic error("intentional onMessage panic for test coverage");
+            }
+            lock { itListenerPanicFollowupCount += 1; }
+        }
+
+        remote function onError(Error err) returns error? {
+            lock { itListenerPanicOnErrorCount += 1; }
+        }
+    };
+    check itListener.attach(panicSvc, "it-panic-svc");
+
+    MessageProducer prod = check new (brokerUrl, username = username, password = password);
+    check prod->send({
+        messageId: "it-panic-01",
+        payload: "trigger panic".toBytes()
+    }, {queueName: "it.listener.panic.queue"});
+    check prod->close();
+
+    runtime:sleep(3);
+
+    MessageProducer prod2 = check new (brokerUrl, username = username, password = password);
+    check prod2->send({
+        messageId: "it-panic-followup",
+        payload: "still alive".toBytes()
+    }, {queueName: "it.listener.panic.queue"});
+    check prod2->close();
+
+    int followupCount = 0;
+    int attempts = 0;
+    while followupCount < 1 && attempts < 10 {
+        runtime:sleep(1);
+        lock { followupCount = itListenerPanicFollowupCount; }
+        attempts += 1;
+    }
+    check itListener.detach(panicSvc);
+
+    int onErrorCount = 0;
+    lock { onErrorCount = itListenerPanicOnErrorCount; }
+    test:assertEquals(onErrorCount, 0, "an onMessage panic must not be routed to onError");
+    test:assertTrue(followupCount >= 1,
+        "the service must still receive the follow-up message — a panic must not hang delivery");
 }
 
 @test:AfterSuite
