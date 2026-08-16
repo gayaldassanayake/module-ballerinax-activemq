@@ -18,9 +18,9 @@
 
 package io.ballerina.lib.activemq.producer;
 
-import io.ballerina.lib.activemq.util.CommonUtils;
 import io.ballerina.lib.activemq.util.ConnectionFactoryUtils;
 import io.ballerina.lib.activemq.util.MessageMapper;
+import io.ballerina.lib.activemq.util.SessionResourceUtils;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BObject;
 import io.ballerina.runtime.api.values.BString;
@@ -49,8 +49,7 @@ public final class Actions {
         final MessageProducer producer;
         final boolean transacted;
         final BMap<BString, Object> defaultDestination;
-        // Guards actual JMS session-level calls (send/commit/rollback). close() never acquires
-        // this lock, so it can proceed even while a send() is blocked on producer flow control.
+        // Guards send/commit/rollback; close() skips this lock so it can proceed during a blocked send().
         final Object sessionLock = new Object();
         volatile boolean closed = false;
 
@@ -80,19 +79,10 @@ public final class Actions {
                     connection, session, producer, config.transacted(), config.destination());
             bProducer.addNativeData(NATIVE_STATE, state);
         } catch (Exception e) {
-            cleanupOnInitFailure(connection, session);
+            SessionResourceUtils.cleanupOnInitFailure(connection, session);
             return createError(ACTIVEMQ_ERROR, "Failed to initialize producer: " + e.getMessage(), e);
         }
         return null;
-    }
-
-    private static void cleanupOnInitFailure(Connection connection, Session session) {
-        if (session != null) {
-            CommonUtils.closeQuietly(session::close);
-        }
-        if (connection != null) {
-            CommonUtils.closeQuietly(connection::close);
-        }
     }
 
     public static Object send(BObject bProducer, BMap<BString, Object> bMessage, Object destinationObj) {
@@ -138,23 +128,8 @@ public final class Actions {
         if (state == null) {
             return null;
         }
-        synchronized (state) {
-            if (state.closed) {
-                return null; // idempotent
-            }
-            try {
-                state.connection.stop();
-            } catch (JMSException ignored) {
-                // stop() failure is non-fatal; proceed to close() regardless
-            }
-            try {
-                state.connection.close();
-            } catch (JMSException e) {
-                return createError(ACTIVEMQ_ERROR, "Failed to close producer: " + e.getMessage(), e);
-            }
-            state.closed = true;
-        }
-        return null;
+        return SessionResourceUtils.close(state, state.connection, () -> state.closed,
+                () -> state.closed = true, "producer");
     }
 
     @SuppressWarnings("unchecked")
@@ -172,20 +147,7 @@ public final class Actions {
         if (state == null) {
             return createError(ACTIVEMQ_ERROR, "ActiveMQ producer is not initialized");
         }
-        synchronized (state) {
-            if (state.closed) {
-                return createError(ACTIVEMQ_ERROR, "ActiveMQ producer is already closed");
-            }
-        }
-        synchronized (state.sessionLock) {
-            if (state.closed) {
-                return createError(ACTIVEMQ_ERROR, "ActiveMQ producer is already closed");
-            }
-            try {
-                return action.run(state);
-            } catch (JMSException e) {
-                return createError(ACTIVEMQ_ERROR, String.format("Failed to %s: %s", operation, e.getMessage()), e);
-            }
-        }
+        return SessionResourceUtils.execute(state, state.sessionLock, () -> state.closed, "producer", operation,
+                () -> action.run(state));
     }
 }

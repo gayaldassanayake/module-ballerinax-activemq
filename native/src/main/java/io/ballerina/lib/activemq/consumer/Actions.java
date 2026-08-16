@@ -19,9 +19,9 @@
 package io.ballerina.lib.activemq.consumer;
 
 import io.ballerina.lib.activemq.util.ActiveMQDatabindingException;
-import io.ballerina.lib.activemq.util.CommonUtils;
 import io.ballerina.lib.activemq.util.ConnectionFactoryUtils;
 import io.ballerina.lib.activemq.util.MessageMapper;
+import io.ballerina.lib.activemq.util.SessionResourceUtils;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BObject;
 import io.ballerina.runtime.api.values.BString;
@@ -51,9 +51,7 @@ public final class Actions {
         final Session session;
         final MessageConsumer consumer;
         final boolean transacted;
-        // Guards actual JMS session-level calls (receive/acknowledge/commit/rollback) so they
-        // never overlap on the single-threaded Session. close() never acquires this lock, so it
-        // can always unblock a pending receive() rather than wait behind it.
+        // Guards receive/acknowledge/commit/rollback; close() skips it so it can unblock a pending receive().
         final Object sessionLock = new Object();
         volatile boolean closed = false;
 
@@ -84,19 +82,10 @@ public final class Actions {
             ConsumerState state = new ConsumerState(connection, session, consumer, transacted);
             bConsumer.addNativeData(NATIVE_STATE, state);
         } catch (Exception e) {
-            cleanupOnInitFailure(connection, session);
+            SessionResourceUtils.cleanupOnInitFailure(connection, session);
             return createError(ACTIVEMQ_ERROR, "Failed to initialize consumer: " + e.getMessage(), e);
         }
         return null;
-    }
-
-    private static void cleanupOnInitFailure(Connection connection, Session session) {
-        if (session != null) {
-            CommonUtils.closeQuietly(session::close);
-        }
-        if (connection != null) {
-            CommonUtils.closeQuietly(connection::close);
-        }
     }
 
     public static Object receive(BObject bConsumer, long timeoutMs, BTypedesc bTypedesc) {
@@ -112,10 +101,7 @@ public final class Actions {
         Message run(ConsumerState state) throws JMSException;
     }
 
-    // A timeout of 0 means "block indefinitely" per JMS, so the blocking call only holds
-    // sessionLock (shared with acknowledge/commit/rollback), never the state monitor close() uses.
-    // Closing the consumer/connection from another thread is defined by JMS to unblock a pending
-    // receive with null, without close() ever waiting on sessionLock.
+    // The blocking call holds only sessionLock, never the state monitor, so close() can unblock it with null.
     private static Object receiveFrom(BObject bConsumer, BTypedesc bTypedesc, BlockingReceive blockingReceive) {
         ConsumerState state = (ConsumerState) bConsumer.getNativeData(NATIVE_STATE);
         if (state == null) {
@@ -131,14 +117,10 @@ public final class Actions {
             synchronized (state.sessionLock) {
                 jmsMsg = blockingReceive.run(state);
             }
-            synchronized (state) {
-                if (state.closed) {
-                    return null;
-                }
-            }
             if (jmsMsg == null) {
                 return null;
             }
+            // Return a delivered message even if close() raced in right after - JMS will never redeliver it.
             BMap<BString, Object> bMsg = MessageMapper.toBallerinaMessage(jmsMsg, bTypedesc);
             bMsg.addNativeData(NATIVE_STATE, state);
             return bMsg;
@@ -154,9 +136,7 @@ public final class Actions {
         }
     }
 
-    // Operates on the native JMS message stashed by receiveFrom(); the same-session ConsumerState
-    // stashed alongside it gives us sessionLock, so this can't overlap with a receive/commit/rollback
-    // on that session.
+    // Uses the same-session ConsumerState's sessionLock so this can't overlap a receive/commit/rollback.
     public static Object acknowledge(BMap<BString, Object> message) {
         Object nativeMessage = message.getNativeData(MessageMapper.NATIVE_MESSAGE);
         if (!(nativeMessage instanceof Message jmsMsg)) {
@@ -207,23 +187,8 @@ public final class Actions {
         if (state == null) {
             return null;
         }
-        synchronized (state) {
-            if (state.closed) {
-                return null; // idempotent
-            }
-            try {
-                state.connection.stop();
-            } catch (JMSException ignored) {
-                // stop() failure is non-fatal; proceed to close() regardless
-            }
-            try {
-                state.connection.close();
-            } catch (JMSException e) {
-                return createError(ACTIVEMQ_ERROR, "Failed to close consumer: " + e.getMessage(), e);
-            }
-            state.closed = true;
-        }
-        return null;
+        return SessionResourceUtils.close(state, state.connection, () -> state.closed,
+                () -> state.closed = true, "consumer");
     }
 
     @FunctionalInterface
@@ -236,22 +201,7 @@ public final class Actions {
         if (state == null) {
             return createError(ACTIVEMQ_ERROR, "ActiveMQ consumer is not initialized");
         }
-        synchronized (state) {
-            if (state.closed) {
-                return createError(ACTIVEMQ_ERROR, "ActiveMQ consumer is already closed");
-            }
-        }
-        synchronized (state.sessionLock) {
-            if (state.closed) {
-                return createError(ACTIVEMQ_ERROR, "ActiveMQ consumer is already closed");
-            }
-            try {
-                return action.run(state);
-            } catch (JMSException e) {
-                return createError(ACTIVEMQ_ERROR, String.format("Failed to %s: %s", operation, e.getMessage()), e);
-            } catch (ActiveMQDatabindingException e) {
-                return createError(ACTIVEMQ_ERROR, e.getMessage(), e);
-            }
-        }
+        return SessionResourceUtils.execute(state, state.sessionLock, () -> state.closed, "consumer", operation,
+                () -> action.run(state));
     }
 }
