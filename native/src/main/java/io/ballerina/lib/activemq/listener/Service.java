@@ -148,13 +148,7 @@ public class Service {
         }
     }
 
-    /**
-     * Checks whether {@code candidateType} can be populated from a JMS message the same way
-     * {@code activemq:Message} can — either it's exactly {@code activemq:Message}, or a record with
-     * the same fields (matching {@code record {|*Message; ...|}} type inclusion), where only the
-     * {@code payload} field's type is allowed to differ so a caller can narrow it to a specific
-     * type, mirroring {@code MessageConsumer.receive()}'s typed payload binding.
-     */
+    /** Checks candidateType is activemq:Message, or a record narrowing only its payload field's type. */
     private static boolean isMessageCompatibleType(Type candidateType) {
         if (TypeUtils.isSameType(MSG_TYPE, candidateType)) {
             return true;
@@ -174,11 +168,17 @@ public class Service {
                     TypeUtils.getReferredType(candidateField.getFieldType()))) {
                 return false;
             }
-            // A field activemq:Message only sets when the JMS message actually carries it must
-            // not be declared required on the candidate - it can legitimately be absent at runtime.
+            // A Message field only set when the JMS message carries it can't be required on the candidate.
             boolean msgFieldOptional = SymbolFlags.isFlagOn(entry.getValue().getFlags(), SymbolFlags.OPTIONAL);
             boolean candidateFieldRequired = !SymbolFlags.isFlagOn(candidateField.getFlags(), SymbolFlags.OPTIONAL);
             if (msgFieldOptional && candidateFieldRequired) {
+                return false;
+            }
+        }
+        for (Map.Entry<String, Field> entry : candidateFields.entrySet()) {
+            // A field the dispatcher can never populate (not part of Message) must be optional.
+            if (!msgRecord.getFields().containsKey(entry.getKey())
+                    && !SymbolFlags.isFlagOn(entry.getValue().getFlags(), SymbolFlags.OPTIONAL)) {
                 return false;
             }
         }

@@ -183,3 +183,26 @@ isolated function testSvcWithRequiredFieldOptionalOnMessage() returns error? {
                 "Expected error about an incompatible onMessage parameter type");
     }
 }
+
+// A narrowed onMessage record must not add a required field the dispatcher has no way to
+// populate — such a field isn't part of activemq:Message at all, so it can never be set from a
+// JMS message, unlike correlationId above, which is a real Message field that's just optional.
+@test:Config {
+    groups: ["service", "validations"]
+}
+isolated function testSvcWithExtraRequiredFieldOnMessage() returns error? {
+    Service svc = @ServiceConfig {
+        queueName: "test-svc-extra-required-field"
+    } service object {
+        remote function onMessage(record {|*Message; string payload; string extra;|} message)
+                returns error? {
+        }
+    };
+    Error? result = activemqListener.attach(svc);
+    test:assertTrue(result is Error);
+    if result is Error {
+        test:assertTrue(
+                result.message().includes("onMessage method parameters must be of type 'activemq:Message'"),
+                "Expected error about an incompatible onMessage parameter type");
+    }
+}
