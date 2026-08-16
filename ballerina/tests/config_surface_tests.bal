@@ -17,7 +17,6 @@
 import ballerina/lang.runtime;
 import ballerina/test;
 
-// TC-CONFIG-01 (smoke): a non-default PrefetchPolicy doesn't break send/receive.
 @test:Config {
     groups: ["integration", "config-surface"]
 }
@@ -37,7 +36,6 @@ function testConfigSurfacePrefetchPolicy() returns error? {
     test:assertTrue(received is Message, "send/receive should still work with a custom PrefetchPolicy");
 }
 
-// TC-CONFIG-02 (smoke): optimizeAcknowledgements: true doesn't break send/receive.
 @test:Config {
     groups: ["integration", "config-surface"]
 }
@@ -57,8 +55,6 @@ function testConfigSurfaceOptimizeAcknowledgements() returns error? {
     test:assertTrue(received is Message, "send/receive should still work with optimizeAcknowledgements enabled");
 }
 
-// TC-CONFIG-03 (smoke): setAlwaysSessionAsync: false (the non-default value -- true is already
-// the default and so already implicitly exercised by every other test) doesn't break send/receive.
 @test:Config {
     groups: ["integration", "config-surface"]
 }
@@ -80,12 +76,6 @@ function testConfigSurfaceSetAlwaysSessionAsync() returns error? {
 
 isolated int itConfigNoLocalCount = 0;
 
-// TC-CONFIG-04 (smoke): TopicConfig.noLocal: true doesn't break normal topic delivery.
-// A real functional test (does noLocal filter out self-published messages) isn't possible through
-// this connector's public API: `Caller` (caller.bal) only exposes acknowledge/commit/rollback, no
-// send capability, so a Listener and a MessageProducer can never share the same underlying JMS
-// connection -- noLocal's "don't deliver messages published by my own connection" condition can
-// never actually trigger between any two separate client instances here.
 @test:Config {
     groups: ["integration", "config-surface"]
 }
@@ -103,8 +93,6 @@ function testConfigSurfaceNoLocalTopic() returns error? {
     check noLocalListener.attach(noLocalSvc, "it-config-nolocal-svc");
     check noLocalListener.'start();
 
-    // Give the subscriber time to fully attach before sending -- topics require subscribers to be
-    // connected before messages are sent.
     runtime:sleep(2);
 
     MessageProducer producer = check new (brokerUrl, username = username, password = password);
@@ -122,8 +110,6 @@ function testConfigSurfaceNoLocalTopic() returns error? {
 
 isolated int itConfigRedeliveryAttempts = 0;
 
-// TC-CONFIG-05 (functional): a small maximumRedeliveries actually caps redelivery -- the message
-// ends up on ActiveMQ.DLQ once exhausted, rather than being redelivered forever.
 @test:Config {
     groups: ["integration", "config-surface"]
 }
@@ -157,8 +143,6 @@ function testConfigSurfaceRedeliveryPolicyDeadLetterQueue() returns error? {
     }, {queueName: "it.config.redelivery.queue"});
     check producer->close();
 
-    // 1 initial delivery + 2 redeliveries (500ms apart) before ActiveMQ gives up and moves the
-    // message to the DLQ -- give it comfortable headroom.
     runtime:sleep(6);
     check redeliveryListener.gracefulStop();
 
@@ -177,8 +161,6 @@ function testConfigSurfaceRedeliveryPolicyDeadLetterQueue() returns error? {
 
 isolated int itConfigClientIdReceivedCount = 0;
 
-// TC-CONFIG-06 (functional): a durable topic subscription resumes under the same clientID after a
-// reconnect, receiving messages published while it was offline.
 @test:Config {
     groups: ["integration", "config-surface"]
 }
@@ -198,10 +180,11 @@ function testConfigSurfaceClientIdDurableReconnect() returns error? {
     };
     check listenerA.attach(svcA, "it-config-clientid-svc-a");
     check listenerA.'start();
-    runtime:sleep(2); // let the durable subscription register before going offline
-    check listenerA.gracefulStop(); // disconnect without unsubscribing -- the durable
-                                     // subscription must persist broker-side
-    runtime:sleep(2); // let the broker fully process the disconnect
+    // Allow the broker to persist the durable subscription before disconnecting.
+    runtime:sleep(2);
+    check listenerA.gracefulStop();
+    // Allow the broker to finish disconnecting before publishing offline.
+    runtime:sleep(2);
 
     MessageProducer producer = check new (brokerUrl, username = username, password = password);
     check producer->send({payload: "published while offline".toBytes()}, {topicName: "it.config.clientid.topic"});

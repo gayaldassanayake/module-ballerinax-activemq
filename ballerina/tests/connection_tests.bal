@@ -16,14 +16,10 @@
 
 import ballerina/test;
 
-// Configurable variables read from ballerina/tests/Config.toml under [ballerinax.activemq].
-// Copy Config.toml.example to Config.toml and adjust values for your environment.
 configurable string brokerUrl = "tcp://localhost:61616";
 configurable string username = "admin";
 configurable string password = "admin";
 
-// Drain all messages from a queue so tests start with a clean slate even when
-// a previous run left unconsumed messages behind.
 isolated function drainQueue(string queueName) returns error? {
     MessageConsumer drainer = check new (brokerUrl,
         username = username, password = password, destination = {queueName: queueName});
@@ -42,7 +38,6 @@ isolated function drainQueue(string queueName) returns error? {
     }
 }
 
-// TC-CONN-01: Successful connection to broker
 @test:Config {
     groups: ["integration", "connection"]
 }
@@ -51,32 +46,23 @@ function testItSuccessfulConnection() returns error? {
     check producer->close();
 }
 
-// TC-CONN-02: Failed connection — wrong host
 @test:Config {
     groups: ["integration", "connection"]
 }
 function testItConnectionWrongHost() {
     MessageProducer|Error result = new MessageProducer("tcp://localhost:19999");
     if result is MessageProducer {
-        // Lazy connection: the error surfaces on first use rather than at init time.
         Error? sendErr = result->send(
             {messageId: "dead-wrong-host", payload: "x".toBytes()}, {queueName: "it.conn.discard.queue"});
         do { check result->close(); } on fail { }
         test:assertTrue(sendErr is Error,
             "send should fail when the broker is unreachable");
     } else {
-        // Eager connection: error surfaced at init time — also valid.
         test:assertTrue(result is Error,
             "init should return Error for an unreachable broker");
     }
 }
 
-// TC-CONN-03: Failed connection — wrong credentials
-// DISABLED: The apache/activemq-classic:6.2.4 Docker image does not enforce OpenWire
-// (JMS) authentication by default. ACTIVEMQ_ADMIN_LOGIN / ACTIVEMQ_ADMIN_PASSWORD only
-// protect the web-console REST API, not JMS connections over OpenWire port 61616.
-// To enable JMS credential validation, mount a custom activemq.xml that includes a
-// SimpleAuthenticationPlugin or equivalent security plugin.
 @test:Config {
     groups: ["integration", "connection"],
     enable: false
@@ -90,9 +76,6 @@ function testItConnectionWrongCredentials() {
     }
 }
 
-// TC-CONN-04: init() fails after the connection is already open (a syntactically invalid
-// message selector is only rejected by the broker at createConsumer() time) — this must still
-// return a clean Error rather than leaking the already-opened JMS connection.
 @test:Config {
     groups: ["integration", "connection"]
 }

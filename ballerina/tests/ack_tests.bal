@@ -23,7 +23,6 @@ isolated int itAckRecoverFirstCount = 0;
 isolated int itAckRecoverSecondCount = 0;
 isolated int itAckDupsOkCount = 0;
 
-// TC-ACK-01: AUTO_ACKNOWLEDGE (default) — message is not redelivered after receive
 @test:Config {
     groups: ["integration", "ack"]
 }
@@ -62,7 +61,6 @@ function testItAckAutoAcknowledge() returns error? {
     check ackAutoListener.gracefulStop();
 }
 
-// TC-ACK-02: CLIENT_ACKNOWLEDGE — message is not redelivered after explicit ack
 @test:Config {
     groups: ["integration", "ack"]
 }
@@ -102,9 +100,6 @@ function testItAckClientAcknowledgeExplicit() returns error? {
     check ackClientListener.gracefulStop();
 }
 
-// TC-ACK-03: CLIENT_ACKNOWLEDGE — no ack, session recover
-// Verifies that a message unacknowledged when the listener closes is redelivered
-// to the next listener that connects to the same queue.
 @test:Config {
     groups: ["integration", "ack"]
 }
@@ -113,7 +108,6 @@ function testItAckClientAcknowledgeRecover() returns error? {
     lock { itAckRecoverFirstCount = 0; }
     lock { itAckRecoverSecondCount = 0; }
 
-    // Send test message
     MessageProducer prod = check new (brokerUrl, username = username, password = password);
     check prod->send({
         messageId: "it-ack-recover-01",
@@ -121,7 +115,6 @@ function testItAckClientAcknowledgeRecover() returns error? {
     }, {queueName: "it.ack.recover.queue"});
     check prod->close();
 
-    // Listener 1: receives but deliberately does NOT acknowledge
     Listener listener1 = check new (brokerUrl, username = username, password = password);
     Service noAckSvc = @ServiceConfig {
         queueName: "it.ack.recover.queue",
@@ -131,8 +124,6 @@ function testItAckClientAcknowledgeRecover() returns error? {
             lock {
                 itAckRecoverFirstCount += 1;
             }
-            // Intentionally NOT calling caller->acknowledge() so the message
-            // remains unacknowledged and should be redelivered after session close.
         }
     };
     check listener1.attach(noAckSvc, "it-ack-no-ack-svc");
@@ -144,11 +135,9 @@ function testItAckClientAcknowledgeRecover() returns error? {
             "listener 1 should receive the message");
     }
 
-    // Close without acknowledging — broker should mark the message for redelivery.
     check listener1.immediateStop();
     runtime:sleep(3);
 
-    // Listener 2: receives the redelivered message and acknowledges it
     Listener listener2 = check new (brokerUrl, username = username, password = password);
     Service redeliverSvc = @ServiceConfig {
         queueName: "it.ack.recover.queue",
@@ -172,9 +161,6 @@ function testItAckClientAcknowledgeRecover() returns error? {
     check listener2.gracefulStop();
 }
 
-// TC-ACK-04: DUPS_OK_ACKNOWLEDGE — flow completes without error
-// Exact redelivery behaviour is broker-dependent in DUPS_OK mode; this test
-// verifies that the session mode is accepted and messages flow without error.
 @test:Config {
     groups: ["integration", "ack"]
 }

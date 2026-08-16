@@ -42,7 +42,6 @@ isolated function testQueueService() returns error? {
     };
     check activemqListener.attach(consumerSvc, "test-queue-service");
 
-    // Send message using test producer utility
     check sendToQueue(BROKER_URL, "service-test-queue", "Hello World from queue");
 
     runtime:sleep(2);
@@ -76,11 +75,8 @@ isolated function testTopicService() returns error? {
     };
     check activemqListener.attach(consumerSvc, "test-topic-service");
 
-    // Give the subscriber time to fully attach before sending
-    // Topics require subscribers to be connected before messages are sent
     runtime:sleep(2);
 
-    // Send message using test producer utility
     check sendToTopic(BROKER_URL, "service-test-topic", "Hello World from topic");
 
     runtime:sleep(2);
@@ -109,7 +105,6 @@ isolated function testServiceWithCaller() returns error? {
     };
     check activemqListener.attach(consumerSvc, "test-caller-svc");
 
-    // Send message using test producer utility
     check sendToQueue(BROKER_URL, "service-caller-test-queue", "Hello World with caller");
 
     runtime:sleep(2);
@@ -138,7 +133,6 @@ isolated function testServiceWithTransactions() returns error? {
     };
     check activemqListener.attach(consumerSvc, "test-transacted-svc");
 
-    // Send message using test producer utility
     check sendToQueue(BROKER_URL, "trx-service-test-queue", "Transaction test message");
 
     runtime:sleep(2);
@@ -164,7 +158,6 @@ isolated function testServiceWithTransactionsRollback() returns error? {
                 ServiceWithTransactionsRollbackMsgCount += 1;
                 count = ServiceWithTransactionsRollbackMsgCount;
             }
-            // Rollback to test redelivery
             if count == 1 {
                 check caller->'rollback();
             } else {
@@ -174,14 +167,10 @@ isolated function testServiceWithTransactionsRollback() returns error? {
     };
     check activemqListener.attach(consumerSvc, "test-rollback-svc");
 
-    // Send message using test producer utility
     check sendToQueue(BROKER_URL, "trx-rollback-service-test-queue", "Rollback test message");
 
-    // Redelivery after rollback is driven by the JMS provider's RedeliveryPolicy timer (default
-    // ~1s initial delay) under push delivery, so allow enough headroom past that.
     runtime:sleep(4);
     lock {
-        // Should receive message twice (once before rollback, once after redelivery)
         test:assertEquals(ServiceWithTransactionsRollbackMsgCount, 2,
             "'trx-rollback-service-test-queue' did not receive the expected number of messages");
     }
@@ -206,11 +195,8 @@ isolated function testDurableTopicService() returns error? {
     };
     check activemqListener.attach(consumerSvc, "test-durable-topic-service");
 
-    // Give the subscriber time to fully attach before sending
-    // Topics require subscribers to be connected before messages are sent
     runtime:sleep(5);
 
-    // Send message using test producer utility
     check sendToTopic(BROKER_URL, "service-durable-topic", "Hello durable subscriber");
 
     runtime:sleep(5);
@@ -238,7 +224,6 @@ isolated function testExclusiveQueueService() returns error? {
     };
     check activemqListener.attach(consumerSvc, "test-exclusive-service");
 
-    // Send message using test producer utility
     check sendToQueue(BROKER_URL, "service-exclusive-queue", "Exclusive consumer message");
 
     runtime:sleep(2);
@@ -266,8 +251,6 @@ isolated function testMessageSelectorService() returns error? {
     };
     check activemqListener.attach(consumerSvc, "test-selector-service");
 
-    // Send messages with different priorities
-    // Only messages with priority='high' should be received
     check sendToQueueWithProperties(BROKER_URL, "service-selector-queue", "Low priority message",
         {priority: "low"});
     check sendToQueueWithProperties(BROKER_URL, "service-selector-queue", "High priority message",
@@ -277,7 +260,6 @@ isolated function testMessageSelectorService() returns error? {
 
     runtime:sleep(2);
     lock {
-        // Only the message with priority='high' should be received
         test:assertEquals(messageSelectorServiceReceivedMsgCount, 1,
             "'service-selector-queue' should receive only messages matching selector");
     }

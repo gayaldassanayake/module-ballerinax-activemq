@@ -52,7 +52,6 @@ import static io.ballerina.lib.activemq.util.ActiveMQConstants.STORE_FORMAT;
  */
 public final class SslUtils {
 
-    // Native data keys used by Ballerina crypto module
     private static final String NATIVE_DATA_PUBLIC_KEY_CERTIFICATE = "NATIVE_DATA_PUBLIC_KEY_CERTIFICATE";
     private static final String NATIVE_DATA_PRIVATE_KEY = "NATIVE_DATA_PRIVATE_KEY";
 
@@ -68,12 +67,9 @@ public final class SslUtils {
      */
     @SuppressWarnings("unchecked")
     public static TrustManager[] getTrustmanagers(Object bCert) throws Exception {
-        // Configure TrustManager (certificate for server verification)
         if (bCert instanceof BString cert) {
-            // Single certificate file
             return getTrustManagerFactory(cert).getTrustManagers();
         }
-        // TrustStore (JKS/PKCS12 file)
         BMap<BString, BString> trustStore = (BMap<BString, BString>) bCert;
         return getTrustManagerFactory(trustStore).getTrustManagers();
     }
@@ -88,18 +84,15 @@ public final class SslUtils {
     public static KeyManager[] getKeyManagers(BMap<BString, BString> keyRecord) throws Exception {
         if (Objects.nonNull(keyRecord)) {
             if (keyRecord.containsKey(CERT_FILE)) {
-                // Separate cert and key files
                 BString certFile = keyRecord.get(CERT_FILE);
                 BString keyFile = keyRecord.get(KEY_FILE);
                 BString keyPassword = keyRecord.getStringValue(KEY_PASSWORD);
                 return getKeyManagerFactory(certFile, keyFile, keyPassword).getKeyManagers();
             }
-            // KeyStore (JKS/PKCS12 file)
             return getKeyManagerFactory(keyRecord).getKeyManagers();
         }
         return new KeyManager[0];
     }
-
 
     /**
      * Creates a TrustManagerFactory from a single certificate file.

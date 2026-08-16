@@ -25,7 +25,6 @@ isolated string listenerDataBindingErrorMessage = "";
 isolated byte[] listenerDataBindingUntypedTextPayload = [];
 isolated boolean listenerDataBindingMapMessageHandled = false;
 
-// TC-LISTENER-DATABIND-01: onMessage narrows Message's payload field to `string`
 @test:Config {
     groups: ["integration", "listener", "dataBinding"]
 }
@@ -54,7 +53,6 @@ function testListenerOnMessageStringPayload() returns error? {
         "onMessage should receive the payload narrowed to 'string'");
 }
 
-// TC-LISTENER-DATABIND-02: onMessage narrows Message's payload field to a record (via MapMessage)
 @test:Config {
     groups: ["integration", "listener", "dataBinding"]
 }
@@ -84,8 +82,6 @@ function testListenerOnMessageRecordPayload() returns error? {
     test:assertEquals(received, payload, "onMessage should receive the payload narrowed to a record via MapMessage");
 }
 
-// TC-LISTENER-DATABIND-02b: an unnarrowed activemq:Message payload for a TextMessage is byte[],
-// not string — this is the listener-side half of the untyped-receive byte[] fix.
 @test:Config {
     groups: ["integration", "listener", "dataBinding"]
 }
@@ -117,8 +113,6 @@ function testListenerOnMessageUntypedTextPayloadIsBytes() returns error? {
         "an unnarrowed activemq:Message payload for a TextMessage should be byte[], not string");
 }
 
-// TC-LISTENER-DATABIND-02c: an unnarrowed activemq:Message payload for a MapMessage is a
-// map<Property>, not a crash — collapsing onto the shared conversion path fixes this for free.
 @test:Config {
     groups: ["integration", "listener", "dataBinding"]
 }
@@ -156,8 +150,6 @@ function testListenerOnMessageUntypedMapMessageDoesNotCrash() returns error? {
     test:assertEquals(errorMessage, "", "no onError should fire for a MapMessage with an unnarrowed parameter");
 }
 
-// TC-LISTENER-DATABIND-03: a payload type that doesn't fit the actual message is routed to onError
-// with a clear "Data binding failed" message, instead of silently dropping the message.
 @test:Config {
     groups: ["integration", "listener", "dataBinding"]
 }

@@ -40,7 +40,6 @@ function testAllMessageFields() returns error? {
     };
     check messageFieldsListener.attach(consumerSvc, "message-fields-service");
 
-    // Send message with all possible JMS headers set
     check sendMessageWithAllHeaders(BROKER_URL, "message-fields-test-queue", "Test message with all headers");
     runtime:sleep(2);
     Message? msg = ();
@@ -78,7 +77,6 @@ function testAllMessageFields() returns error? {
 
         test:assertTrue(msg.expiry is int, "expiry should be present");
         int expiry = <int>msg.expiry;
-        // Expiry is absolute timestamp, not TTL - it should be > current time
         test:assertTrue(expiry > 0, "expiry should be > 0");
         test:assertTrue(expiry > timestamp, "expiry should be after message timestamp");
 
@@ -116,13 +114,11 @@ function testRedeliveredField() returns error? {
                 count = redeliveryTestCount;
             }
             if count == 1 {
-                // First delivery - rollback to trigger redelivery
                 lock {
                     redeliveredMessage = ();
                 }
                 check caller->'rollback();
             } else {
-                // Second delivery - should have redelivered=true
                 lock {
                     redeliveredMessage = message;
                 }
@@ -206,10 +202,8 @@ function testPersistentField() returns error? {
     };
     check messageFieldsListener.attach(consumerSvc2, "non-persistent-test-service");
 
-    // Send persistent message
     check sendPersistentMessage(BROKER_URL, "persistent-test-queue", "Persistent message");
 
-    // Send non-persistent message
     check sendNonPersistentMessage(BROKER_URL, "non-persistent-test-queue", "Non-persistent message");
 
     runtime:sleep(2);

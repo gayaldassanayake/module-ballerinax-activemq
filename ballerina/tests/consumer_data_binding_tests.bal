@@ -16,7 +16,6 @@
 
 import ballerina/test;
 
-// TC-DATABIND-01: a string payload sent and received as `string` round-trips via TextMessage
 @test:Config {
     groups: ["integration", "dataBinding"]
 }
@@ -37,7 +36,6 @@ function testDataBindingString() returns error? {
     }
 }
 
-// TC-DATABIND-01b: an untyped (unnarrowed) receive() on a TextMessage returns byte[], not string.
 @test:Config {
     groups: ["integration", "dataBinding"]
 }
@@ -60,8 +58,6 @@ function testDataBindingUntypedTextMessageIsBytes() returns error? {
     }
 }
 
-// TC-DATABIND-01c: TextMessage.getText() legally returns null for a message with no body — both
-// the typed 'string' binding and the untyped byte[] binding must handle that as empty, not NPE.
 @test:Config {
     groups: ["integration", "dataBinding"]
 }
@@ -90,7 +86,6 @@ function testDataBindingNullTextMessageBodyDoesNotPanic() returns error? {
     }
 }
 
-// TC-DATABIND-02: a record payload round-trips via MapMessage
 @test:Config {
     groups: ["integration", "dataBinding"]
 }
@@ -111,7 +106,6 @@ function testDataBindingRecord() returns error? {
     }
 }
 
-// TC-DATABIND-02b: a record payload with a byte[] field round-trips via MapMessage, narrowed.
 @test:Config {
     groups: ["integration", "dataBinding"]
 }
@@ -134,7 +128,6 @@ function testDataBindingRecordWithByteArrayField() returns error? {
     }
 }
 
-// TC-DATABIND-02c: an untyped map<Property> payload also round-trips a byte[] entry.
 @test:Config {
     groups: ["integration", "dataBinding"]
 }
@@ -165,14 +158,13 @@ function testDataBindingUntypedMapWithByteArrayField() returns error? {
     }
 }
 
-// TC-DATABIND-03: byte[] payload behavior is unchanged when explicitly requested
 @test:Config {
     groups: ["integration", "dataBinding"]
 }
 function testDataBindingByteArray() returns error? {
     check drainQueue("it.databind.bytes.queue");
     MessageProducer producer = check new (brokerUrl, username = username, password = password);
-    byte[] payload = [72, 101, 108, 108, 111]; // "Hello"
+    byte[] payload = [72, 101, 108, 108, 111];
     check producer->send({payload}, {queueName: "it.databind.bytes.queue"});
     check producer->close();
 
@@ -186,8 +178,6 @@ function testDataBindingByteArray() returns error? {
     }
 }
 
-// TC-DATABIND-04: leaving T at its default (Message) falls back to the JMS-message-appropriate
-// representation, matching pre-task-20 behavior for a BytesMessage.
 @test:Config {
     groups: ["integration", "dataBinding"]
 }
@@ -208,8 +198,6 @@ function testDataBindingUntypedDefault() returns error? {
     }
 }
 
-// TC-DATABIND-05: requesting a type that doesn't fit the actual message returns an activemq:Error
-// rather than panicking, with a clear "Data binding failed" message.
 @test:Config {
     groups: ["integration", "dataBinding"]
 }
@@ -230,8 +218,6 @@ function testDataBindingTypeMismatch() returns error? {
     }
 }
 
-// TC-DATABIND-07: {temporary: true} binds to a real broker-created temporary queue with no error
-// — a capability that didn't exist at all before this fix.
 @test:Config {
     groups: ["integration", "dataBinding"]
 }
@@ -245,9 +231,6 @@ function testCreateTemporaryQueueConsumer() returns error? {
     }
 }
 
-// TC-DATABIND-08: a received message's replyTo, when it's a real TemporaryQueue, preserves its
-// native identity — replying to it must be delivered to the actual original queue, not a
-// freshly re-created regular queue that merely shares its (broker-assigned) name.
 @test:Config {
     groups: ["integration", "dataBinding"]
 }
@@ -279,8 +262,6 @@ function testTemporaryReplyToRoundTripsIdentity() returns error? {
         "reply should be delivered to the original temporary queue, not a re-created regular one");
 }
 
-// TC-DATABIND-09: a property of a type outside the 8 JMS explicitly supports degrades to a
-// best-effort toString() representation instead of being silently dropped.
 @test:Config {
     groups: ["integration", "dataBinding"]
 }
@@ -309,8 +290,6 @@ function testUnrecognizedPropertyTypeFallsBackToString() returns error? {
     }
 }
 
-// TC-DATABIND-10: an int payload - not string/byte[]/map - round-trips via a JSON-encoded
-// BytesMessage instead of failing to send.
 @test:Config {
     groups: ["integration", "dataBinding"]
 }
@@ -331,7 +310,6 @@ function testDataBindingIntegerPayload() returns error? {
     }
 }
 
-// TC-DATABIND-11: float, decimal, and boolean payloads round-trip the same JSON-encoded way as int.
 @test:Config {
     groups: ["integration", "dataBinding"]
 }

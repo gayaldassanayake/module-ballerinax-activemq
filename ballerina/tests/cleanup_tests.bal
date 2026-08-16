@@ -19,29 +19,24 @@ import ballerina/test;
 
 isolated int itCleanupListenerCount = 0;
 
-// TC-CLEANUP-01: Producer close is idempotent — double-close must not panic
 @test:Config {
     groups: ["integration", "cleanup"]
 }
 function testItProducerCloseIdempotent() returns error? {
     MessageProducer producer = check new (brokerUrl, username = username, password = password);
     check producer->close();
-    // Second close: () or Error are both acceptable; what matters is no panic.
     do { check producer->close(); } on fail { }
 }
 
-// TC-CLEANUP-02: Listener close is idempotent — double-stop must not panic
 @test:Config {
     groups: ["integration", "cleanup"]
 }
 function testItListenerCloseIdempotent() returns error? {
     Listener lst = check new (brokerUrl, username = username, password = password);
     check lst.gracefulStop();
-    // Second stop: () or Error are both acceptable; what matters is no panic.
     do { check lst.gracefulStop(); } on fail { }
 }
 
-// TC-CLEANUP-03: No message loss — send 10, receive all 10, none duplicated
 @test:Config {
     groups: ["integration", "cleanup"]
 }
@@ -61,7 +56,6 @@ function testItNoMessageLossHappyPath() returns error? {
     }
     check prod->close();
 
-    // Receive all 10 messages synchronously to verify no loss and no duplication.
     MessageConsumer cons = check new (brokerUrl,
         username = username, password = password, destination = {queueName: "it.cleanup.nomsg.queue"});
     int received = 0;
@@ -76,7 +70,6 @@ function testItNoMessageLossHappyPath() returns error? {
         string `should receive all ${messageCount} messages — none lost, none duplicated`);
 }
 
-// TC-CLEANUP-04 (bonus): Listener service cleans up resources after attach
 @test:Config {
     groups: ["integration", "cleanup"]
 }
@@ -113,8 +106,6 @@ function testItListenerServiceCleanup() returns error? {
     check cleanupListener.gracefulStop();
 }
 
-// TC-CLEANUP-05: detach() removes the service from the listener's bookkeeping, so a later
-// start() does not fail trying to re-register a consumer that detach() already closed.
 @test:Config {
     groups: ["integration", "cleanup"]
 }
@@ -131,14 +122,10 @@ function testItListenerStartAfterDetach() returns error? {
     check detachListener.'start();
     check detachListener.detach(detachSvc);
 
-    // Previously threw a JMSException ("consumer closed") because the detached service's
-    // stale entry was never removed from the listener's internal service list.
     check detachListener.'start();
     check detachListener.gracefulStop();
 }
 
-// TC-CLEANUP-06: gracefulStop() after detaching one of several attached services must not fail
-// (regression guard for double-stopping a receiver that's no longer in the bookkeeping list).
 @test:Config {
     groups: ["integration", "cleanup"]
 }
@@ -167,8 +154,6 @@ function testItListenerGracefulStopAfterPartialDetach() returns error? {
 
 isolated int itDetachStopsDeliveryCount = 0;
 
-// TC-CLEANUP-07: detach() actually stops message delivery to the detached service, not just its
-// internal bookkeeping (TC-CLEANUP-05/06 only guard against a crash on subsequent operations).
 @test:Config {
     groups: ["integration", "cleanup"]
 }

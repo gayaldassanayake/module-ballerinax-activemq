@@ -50,7 +50,6 @@ import static io.ballerina.lib.activemq.util.CommonUtils.getAcknowledgementMode;
  * @since 0.1.0
  */
 public final class Listener {
-    // Native data keys for storing JMS objects in Ballerina listener object
     static final String NATIVE_CONNECTION = "native.connection";
     static final String NATIVE_SERVICE_LIST = "native.service.list";
     static final String NATIVE_SERVICE = "native.service";
@@ -59,7 +58,6 @@ public final class Listener {
     static final String DURABLE = "DURABLE";
 
     private Listener() {
-        // Utility class - prevent instantiation
     }
 
     /**
@@ -281,7 +279,6 @@ public final class Listener {
         if (nativeData instanceof List<?>) {
             return (List<BObject>) nativeData;
         } else {
-            // This should never happen - indicates a programming error
             throw new IllegalStateException("Expected List<BObject> but got: " +
                     (nativeData != null ? nativeData.getClass() : "null"));
         }

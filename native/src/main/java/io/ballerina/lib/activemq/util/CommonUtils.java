@@ -35,7 +35,6 @@ import static io.ballerina.lib.activemq.util.ModuleUtils.getModule;
 public class CommonUtils {
 
     private CommonUtils() {
-        // Utility class - prevent instantiation
     }
 
     /**
@@ -102,7 +101,6 @@ public class CommonUtils {
         try {
             action.run();
         } catch (Exception ignored) {
-            // best-effort cleanup - ignore
         }
     }
 

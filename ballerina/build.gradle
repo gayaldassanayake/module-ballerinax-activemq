@@ -57,12 +57,10 @@ configurations {
 }
 
 dependencies {
-    /* ActiveMQ dependencies */
     externalJars(group: 'org.apache.activemq', name: 'activemq-client', version: "${activeMQVersion}") {
         transitive = true
     }
 
-    /* JMS dependencies */
     externalJars(group: 'jakarta.jms', name: 'jakarta.jms-api', version: "${jmsVersion}") {
         transitive = false
     }

@@ -21,7 +21,6 @@ isolated int itTopicSingleSubCount = 0;
 isolated int itTopicMultiSub1Count = 0;
 isolated int itTopicMultiSub2Count = 0;
 
-// TC-TOPIC-01: Publish a TextMessage to a topic and assert the subscriber receives it
 @test:Config {
     groups: ["integration", "topic-pub-sub"]
 }
@@ -39,7 +38,6 @@ function testItTopicPublishAndSubscribe() returns error? {
     check topicListener.attach(topicSvc, "it-topic-single-svc");
     check topicListener.'start();
 
-    // Topics require the subscriber to be registered before the publisher sends.
     runtime:sleep(3);
 
     MessageProducer prod = check new (brokerUrl, username = username, password = password);
@@ -58,7 +56,6 @@ function testItTopicPublishAndSubscribe() returns error? {
     check topicListener.gracefulStop();
 }
 
-// TC-TOPIC-02: Two subscribers on the same topic each receive the same published message
 @test:Config {
     groups: ["integration", "topic-pub-sub"]
 }
@@ -88,7 +85,6 @@ function testItTopicMultipleSubscribers() returns error? {
     check sub2Listener.attach(sub2Svc, "it-topic-multi-sub2");
     check sub2Listener.'start();
 
-    // Both subscribers must be registered before publishing.
     runtime:sleep(4);
 
     MessageProducer prod = check new (brokerUrl, username = username, password = password);

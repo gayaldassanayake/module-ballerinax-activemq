@@ -14,16 +14,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Virtual Topics are an ActiveMQ Classic feature that combines topic fan-out with
-// queue load-balancing. A producer publishes to "topic://VirtualTopic.<name>". Each
-// logical consumer group subscribes to "Consumer.<groupId>.VirtualTopic.<name>", which
-// is a regular queue — messages are stored even if the consumer is temporarily offline.
-// Within a consumer group, multiple competing consumers share the load.
-//
-// The broker's default configuration already includes a virtual-topic interceptor that
-// matches the "Consumer.*.<VirtualTopic>.*" pattern, so no extra broker configuration
-// is needed for these tests.
-
 import ballerina/lang.runtime;
 import ballerina/test;
 
@@ -31,8 +21,6 @@ isolated int vtFanOutGroupACount = 0;
 isolated int vtFanOutGroupBCount = 0;
 isolated int vtLoadBalanceCount = 0;
 
-// TC-VTOPIC-01: Two consumer groups each receive their own copy of every published message.
-// This verifies the fan-out behaviour of virtual topics.
 @test:Config {
     groups: ["integration", "virtual-topic"]
 }
@@ -42,7 +30,6 @@ function testVirtualTopicFanOut() returns error? {
     lock { vtFanOutGroupACount = 0; }
     lock { vtFanOutGroupBCount = 0; }
 
-    // Consumer group A — subscribes via its own consumer queue.
     Listener listenerA = check new (brokerUrl, username = username, password = password);
     Service svcA = @ServiceConfig {
         queueName: "Consumer.groupA.VirtualTopic.it.vt.fanout"
@@ -54,7 +41,6 @@ function testVirtualTopicFanOut() returns error? {
     check listenerA.attach(svcA, "vt-fanout-svc-a");
     check listenerA.'start();
 
-    // Consumer group B — independent copy of every message.
     Listener listenerB = check new (brokerUrl, username = username, password = password);
     Service svcB = @ServiceConfig {
         queueName: "Consumer.groupB.VirtualTopic.it.vt.fanout"
@@ -66,7 +52,6 @@ function testVirtualTopicFanOut() returns error? {
     check listenerB.attach(svcB, "vt-fanout-svc-b");
     check listenerB.'start();
 
-    // Both consumer queues must exist before the publisher sends.
     runtime:sleep(3);
 
     MessageProducer prod = check new (brokerUrl, username = username, password = password);
@@ -90,9 +75,6 @@ function testVirtualTopicFanOut() returns error? {
     check listenerB.gracefulStop();
 }
 
-// TC-VTOPIC-02: Two instances of the same consumer group share (load-balance) messages.
-// Each message is delivered to exactly one instance; the total across both instances equals
-// the number of messages published.
 @test:Config {
     groups: ["integration", "virtual-topic"]
 }
@@ -100,7 +82,6 @@ function testVirtualTopicLoadBalancing() returns error? {
     check drainQueue("Consumer.workers.VirtualTopic.it.vt.lb");
     lock { vtLoadBalanceCount = 0; }
 
-    // Both instances subscribe to the same consumer queue — they compete for messages.
     Listener instance1 = check new (brokerUrl, username = username, password = password);
     Service svc1 = @ServiceConfig {
         queueName: "Consumer.workers.VirtualTopic.it.vt.lb"

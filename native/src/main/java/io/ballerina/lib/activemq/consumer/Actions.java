@@ -51,7 +51,6 @@ public final class Actions {
         final Session session;
         final MessageConsumer consumer;
         final boolean transacted;
-        // Guards receive/acknowledge/commit/rollback; close() skips it so it can unblock a pending receive().
         final Object sessionLock = new Object();
         volatile boolean closed = false;
 
@@ -101,7 +100,6 @@ public final class Actions {
         Message run(ConsumerState state) throws JMSException;
     }
 
-    // The blocking call holds only sessionLock, never the state monitor, so close() can unblock it with null.
     private static Object receiveFrom(BObject bConsumer, BTypedesc bTypedesc, BlockingReceive blockingReceive) {
         ConsumerState state = (ConsumerState) bConsumer.getNativeData(NATIVE_STATE);
         if (state == null) {
@@ -120,7 +118,6 @@ public final class Actions {
             if (jmsMsg == null) {
                 return null;
             }
-            // Return a delivered message even if close() raced in right after - JMS will never redeliver it.
             BMap<BString, Object> bMsg = MessageMapper.toBallerinaMessage(jmsMsg, bTypedesc);
             bMsg.addNativeData(NATIVE_STATE, state);
             return bMsg;
@@ -136,7 +133,6 @@ public final class Actions {
         }
     }
 
-    // Uses the same-session ConsumerState's sessionLock so this can't overlap a receive/commit/rollback.
     public static Object acknowledge(BMap<BString, Object> message) {
         Object nativeMessage = message.getNativeData(MessageMapper.NATIVE_MESSAGE);
         if (!(nativeMessage instanceof Message jmsMsg)) {

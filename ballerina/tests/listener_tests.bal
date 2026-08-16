@@ -17,8 +17,6 @@
 import ballerina/lang.runtime;
 import ballerina/test;
 
-// Shared listener for TC-LISTENER-01 and TC-LISTENER-02.
-// Closed in @AfterSuite below.
 listener Listener itListener = check new Listener(brokerUrl, username = username, password = password);
 
 isolated int itListenerTextCount = 0;
@@ -36,7 +34,6 @@ isolated int itListenerReturnedErrorOnErrorCount = 0;
 isolated int itListenerPanicOnErrorCount = 0;
 isolated int itListenerPanicFollowupCount = 0;
 
-// TC-LISTENER-01: Listener receives TextMessage from queue within 5 seconds
 @test:Config {
     groups: ["integration", "listener"]
 }
@@ -75,8 +72,6 @@ function testItListenerReceivesTextMessage() returns error? {
         "received payload should match the sent payload");
 }
 
-// TC-LISTENER-02: Listener receives 5 messages — no loss
-// (Strict ordering is verified in TC-QUEUE-CONS-01 via synchronous receive.)
 @test:Config {
     groups: ["integration", "listener"],
     dependsOn: [testItListenerReceivesTextMessage]
@@ -109,20 +104,15 @@ function testItListenerReceivesMultipleMessages() returns error? {
     test:assertEquals(count, 5, "listener should receive all 5 messages without loss");
 }
 
-// TC-LISTENER-03: Listener startup failure — unreachable broker URL
-// Validates that the error is surfaced (not swallowed silently), whether the
-// connection is eager (error at init) or lazy (error at first attach/dispatch).
 @test:Config {
     groups: ["integration", "listener"]
 }
 function testItListenerStartupFailure() {
     Listener|Error result = new Listener("tcp://localhost:19999");
     if result is Error {
-        // Eager connection: error surfaced at init time — expected.
         test:assertTrue(result is Error,
             "init should return Error for an unreachable broker");
     } else {
-        // Lazy connection: error must surface on first attach, not be swallowed.
         Error? attachResult = result.attach(
             @ServiceConfig {
                 queueName: "it.listener.fail.queue"
@@ -137,7 +127,6 @@ function testItListenerStartupFailure() {
     }
 }
 
-// TC-LISTENER-04: Listener graceful stop — no messages delivered after stop
 @test:Config {
     groups: ["integration", "listener"]
 }
@@ -182,8 +171,6 @@ function testItListenerGracefulStop() returns error? {
         "no further messages should be delivered after gracefulStop");
 }
 
-// TC-LISTENER-05: Listener delivers a message within 1 second — proves delivery is native JMS
-// push, not the old poll loop (task 26).
 @test:Config {
     groups: ["integration", "listener"]
 }
@@ -214,8 +201,6 @@ function testItListenerPushDeliveryIsFast() returns error? {
         "message should be delivered within 1 second via native push delivery, not polling");
 }
 
-// TC-LISTENER-06: Messages for a single service are processed sequentially, never overlapping —
-// the semaphore-based serialization must survive the poll-to-push rewrite (task 26).
 @test:Config {
     groups: ["integration", "listener"]
 }
@@ -263,13 +248,6 @@ function testItListenerSequentialProcessing() returns error? {
     test:assertFalse(overlap, "messages for a single service must be processed sequentially, not concurrently");
 }
 
-// TC-LISTENER-07: An unexpected JMS message type (ObjectMessage) must not hang the service's
-// delivery loop — the next text message on the same queue must still be delivered (task 13).
-// A data-binding failure now makes MessageDispatcher rethrow so the session doesn't acknowledge
-// it, so the ObjectMessage genuinely goes through ActiveMQ's default redelivery policy (~6
-// retries, ~1s apart) before landing in the DLQ - poll for the follow-up instead of a fixed
-// sleep, since that redelivery run takes noticeably longer under full-suite load than in
-// isolation.
 @test:Config {
     groups: ["integration", "listener"]
 }
@@ -314,8 +292,6 @@ function testItListenerUnsupportedMessageTypeDoesNotHang() returns error? {
         "the service must still receive the follow-up text message — the delivery loop must not hang");
 }
 
-// TC-LISTENER-08: A failing onError handler must not crash the runtime — other services on the
-// same listener must remain unaffected (task 12).
 @test:Config {
     groups: ["integration", "listener"]
 }
@@ -361,8 +337,6 @@ function testItListenerFailingOnErrorDoesNotCrashRuntime() returns error? {
         "a failing onError handler must not crash the runtime — other services must keep working");
 }
 
-// TC-LISTENER-09: onMessage returning an activemq:Error - the documented graceful-failure signal -
-// must be routed to onError.
 @test:Config {
     groups: ["integration", "listener"]
 }
@@ -397,8 +371,6 @@ function testItListenerReturnedErrorGoesToOnError() returns error? {
     test:assertTrue(errorCount >= 1, "onMessage returning an error should be routed to onError");
 }
 
-// TC-LISTENER-10: an onMessage panic is an unexpected service bug, not a graceful failure signal -
-// it must only be logged, never routed to onError, and must not hang delivery of later messages.
 @test:Config {
     groups: ["integration", "listener"]
 }

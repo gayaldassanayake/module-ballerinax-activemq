@@ -94,7 +94,6 @@ public class MessageDispatcher {
         }
     }
 
-    // Thrown only for delivery-mechanics failures, never a service BError, so the session won't ack it.
     private static final class ActiveMQMessageProcessingException extends RuntimeException {
         private static final long serialVersionUID = 1L;
 
@@ -149,7 +148,6 @@ public class MessageDispatcher {
                 ERR_OUT.println("Unexpected error occurred while message processing: " + t.getMessage());
                 Optional<RemoteMethodType> onError = nativeService.getOnError();
                 if (onError.isEmpty()) {
-                    // No error handler defined in the service, print stack trace
                     t.printStackTrace();
                     return;
                 }

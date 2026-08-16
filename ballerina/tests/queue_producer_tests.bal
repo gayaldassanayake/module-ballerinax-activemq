@@ -16,7 +16,6 @@
 
 import ballerina/test;
 
-// TC-QUEUE-PROD-00: Queue destinations are represented by the public Queue type.
 @test:Config {
     groups: ["integration", "queue-producer"]
 }
@@ -30,7 +29,6 @@ function testItSendTextMessageToTypedQueue() returns error? {
     test:assertTrue(result is (), "send should succeed for a typed queue destination");
 }
 
-// TC-QUEUE-PROD-01: Send TextMessage to queue
 @test:Config {
     groups: ["integration", "queue-producer"]
 }
@@ -44,7 +42,6 @@ function testItSendTextMessageToQueue() returns error? {
     test:assertTrue(result is (), "send should succeed for a text payload");
 }
 
-// TC-QUEUE-PROD-02: Send BytesMessage to queue
 @test:Config {
     groups: ["integration", "queue-producer"]
 }
@@ -59,8 +56,6 @@ function testItSendBytesMessageToQueue() returns error? {
     test:assertTrue(result is (), "send should succeed for a binary payload");
 }
 
-// TC-QUEUE-PROD-03: Send MapMessage to queue
-// The connector represents map-like data via the message properties field.
 @test:Config {
     groups: ["integration", "queue-producer"]
 }
@@ -78,9 +73,3 @@ function testItSendMapMessageToQueue() returns error? {
     check mqClient->close();
     test:assertTrue(result is (), "send with a properties map should succeed");
 }
-
-// TC-QUEUE-PROD-04: Send to invalid / non-existent destination
-// N/A — ActiveMQ Classic auto-creates queues on first access by default (the broker
-// ships with destinationPolicy/@policyEntry[@wildcardIncluded=true] that enables
-// auto-creation). There is no error to assert for an unknown queue name against the
-// default broker configuration.

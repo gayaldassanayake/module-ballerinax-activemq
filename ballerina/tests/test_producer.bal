@@ -16,9 +16,6 @@
 
 import ballerina/jballerina.java;
 
-// Test producer utility functions for testing without full producer implementation
-// These functions use Java JMS client directly to send messages for testing purposes
-
 # Send a text message to a queue
 #
 # + brokerUrl - The broker URL (e.g., "tcp://localhost:61616")

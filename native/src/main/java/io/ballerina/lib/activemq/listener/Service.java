@@ -168,7 +168,6 @@ public class Service {
                     TypeUtils.getReferredType(candidateField.getFieldType()))) {
                 return false;
             }
-            // A Message field only set when the JMS message carries it can't be required on the candidate.
             boolean msgFieldOptional = SymbolFlags.isFlagOn(entry.getValue().getFlags(), SymbolFlags.OPTIONAL);
             boolean candidateFieldRequired = !SymbolFlags.isFlagOn(candidateField.getFlags(), SymbolFlags.OPTIONAL);
             if (msgFieldOptional && candidateFieldRequired) {
@@ -176,7 +175,6 @@ public class Service {
             }
         }
         for (Map.Entry<String, Field> entry : candidateFields.entrySet()) {
-            // A field the dispatcher can never populate (not part of Message) must be optional.
             if (!msgRecord.getFields().containsKey(entry.getKey())
                     && !SymbolFlags.isFlagOn(entry.getValue().getFlags(), SymbolFlags.OPTIONAL)) {
                 return false;

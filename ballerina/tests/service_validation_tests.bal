@@ -106,7 +106,6 @@ isolated function testSvcWithInvalidOnMessageParams() returns error? {
     Service svc = @ServiceConfig {
         queueName: "test-svc-params"
     } service object {
-        // Invalid - missing Message parameter
         remote function onMessage(Caller caller) returns error? {
         }
     };
@@ -125,7 +124,6 @@ isolated function testSvcWithOnlyOnError() returns error? {
     Service svc = @ServiceConfig {
         queueName: "test-svc-only-onerror"
     } service object {
-        // Invalid - a service must declare onMessage; onError alone is not enough
         remote function onError(Error err) returns error? {
         }
     };
@@ -149,7 +147,6 @@ isolated function testSvcWithInvalidOnErrorParams() returns error? {
         remote function onMessage(Message message) returns error? {
         }
 
-        // Invalid - onError should have exactly one error parameter
         remote function onError(Message message) returns error? {
         }
     };
@@ -161,9 +158,6 @@ isolated function testSvcWithInvalidOnErrorParams() returns error? {
     }
 }
 
-// activemq:Message declares correlationId as optional (it's only set when the JMS message
-// actually carries one), so a narrowed onMessage record must not make it required — that field
-// could legitimately be absent at runtime, leaving a required field unset.
 @test:Config {
     groups: ["service", "validations"]
 }
@@ -184,9 +178,6 @@ isolated function testSvcWithRequiredFieldOptionalOnMessage() returns error? {
     }
 }
 
-// A narrowed onMessage record must not add a required field the dispatcher has no way to
-// populate — such a field isn't part of activemq:Message at all, so it can never be set from a
-// JMS message, unlike correlationId above, which is a real Message field that's just optional.
 @test:Config {
     groups: ["service", "validations"]
 }

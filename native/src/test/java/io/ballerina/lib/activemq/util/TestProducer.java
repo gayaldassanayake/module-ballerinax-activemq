@@ -47,7 +47,6 @@ import javax.net.ssl.TrustManagerFactory;
 public final class TestProducer {
 
     private TestProducer() {
-        // Prevent instantiation
     }
 
     /**
@@ -62,8 +61,6 @@ public final class TestProducer {
         if (brokerUrl.startsWith("ssl://")) {
             ActiveMQSslConnectionFactory sslFactory = new ActiveMQSslConnectionFactory(brokerUrl);
 
-            // For testing purposes, configure SSL to trust the self-signed server certificate
-            // Load the server certificate from the truststore
             String trustStorePath = "./tests/resources/secrets/client-truststore.p12";
             String trustStorePassword = "password";
 
@@ -125,7 +122,6 @@ public final class TestProducer {
 
             TextMessage textMessage = session.createTextMessage(message.getValue());
 
-            // Set properties if any
             if (properties != null) {
                 for (BString key : properties.getKeys()) {
                     String value = properties.get(key).getValue();
@@ -189,7 +185,6 @@ public final class TestProducer {
 
             TextMessage textMessage = session.createTextMessage(message.getValue());
 
-            // Set properties if any
             if (properties != null) {
                 for (BString key : properties.getKeys()) {
                     Object value = properties.get(key);
@@ -284,8 +279,6 @@ public final class TestProducer {
             producer = session.createProducer(destination);
 
             jakarta.jms.ObjectMessage objectMessage = session.createObjectMessage();
-            // A body not assignable to String.class, so message.getBody(String.class) genuinely
-            // throws MessageFormatException instead of trivially succeeding on a String body.
             objectMessage.setObject(new java.util.ArrayList<>(java.util.List.of(payload.getValue())));
 
             producer.send(objectMessage);
@@ -331,14 +324,12 @@ public final class TestProducer {
 
             TextMessage textMessage = session.createTextMessage(message.getValue());
 
-            // Set various JMS headers
             textMessage.setJMSCorrelationID("test-correlation-id");
             textMessage.setJMSType("TestMessageType");
             textMessage.setJMSPriority(5);
             textMessage.setJMSReplyTo(destination);
-            // Note: JMSTimestamp, JMSDestination, JMSMessageID, JMSRedelivered are set by broker
 
-            producer.send(textMessage, jakarta.jms.DeliveryMode.PERSISTENT, 5, 60000); // 1 min TTL
+            producer.send(textMessage, jakarta.jms.DeliveryMode.PERSISTENT, 5, 60000);
         } catch (JMSException e) {
             throw e;
         } catch (Exception e) {
@@ -426,7 +417,6 @@ public final class TestProducer {
 
             TextMessage textMessage = session.createTextMessage(message.getValue());
 
-            // Send with PERSISTENT delivery mode
             producer.send(textMessage, jakarta.jms.DeliveryMode.PERSISTENT,
                     jakarta.jms.Message.DEFAULT_PRIORITY, jakarta.jms.Message.DEFAULT_TIME_TO_LIVE);
         } catch (JMSException e) {
@@ -471,7 +461,6 @@ public final class TestProducer {
 
             TextMessage textMessage = session.createTextMessage(message.getValue());
 
-            // Send with NON_PERSISTENT delivery mode
             producer.send(textMessage, jakarta.jms.DeliveryMode.NON_PERSISTENT,
                     jakarta.jms.Message.DEFAULT_PRIORITY, jakarta.jms.Message.DEFAULT_TIME_TO_LIVE);
         } catch (JMSException e) {
@@ -530,7 +519,6 @@ public final class TestProducer {
                 try {
                     connection.close();
                 } catch (JMSException ignored) {
-                    // best-effort cleanup - ignore
                 }
             }
         }

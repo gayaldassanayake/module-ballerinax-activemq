@@ -18,7 +18,6 @@ import ballerina/lang.runtime;
 import ballerina/test;
 import ballerina/time;
 
-// TC-QUEUE-CONS-01: Receive TextMessage from queue
 @test:Config {
     groups: ["integration", "queue-consumer"]
 }
@@ -42,7 +41,6 @@ function testItReceiveTextMessageFromQueue() returns error? {
     }
 }
 
-// TC-QUEUE-CONS-02: Receive BytesMessage from queue
 @test:Config {
     groups: ["integration", "queue-consumer"]
 }
@@ -67,7 +65,6 @@ function testItReceiveBytesMessageFromQueue() returns error? {
     }
 }
 
-// TC-QUEUE-CONS-03: Receive MapMessage from queue (via message properties)
 @test:Config {
     groups: ["integration", "queue-consumer"]
 }
@@ -96,7 +93,6 @@ function testItReceiveMapMessageFromQueue() returns error? {
     }
 }
 
-// TC-QUEUE-CONS-04: Receive with timeout — no message available
 @test:Config {
     groups: ["integration", "queue-consumer"]
 }
@@ -109,7 +105,6 @@ function testItReceiveTimeoutEmptyQueue() returns error? {
         "should return () — not an error — when no message arrives within the timeout");
 }
 
-// TC-QUEUE-CONS-05: receiveNoWait() returns a message that's already sitting on the queue
 @test:Config {
     groups: ["integration", "queue-consumer"]
 }
@@ -125,11 +120,6 @@ function testItReceiveNoWaitReturnsAvailableMessage() returns error? {
     MessageConsumer consumer = check new (brokerUrl,
         username = username, password = password, destination = {queueName: "it.cons.nowait.queue"});
 
-    // The message is already enqueued on the broker by now, but the client's local prefetch buffer
-    // is filled asynchronously over the wire, so there's no fixed delay that's reliably long enough
-    // under load. Poll with receiveNoWait() itself instead of guessing a single sleep duration --
-    // each individual call still returns immediately, this loop just bounds how long we wait for
-    // the async delivery to catch up.
     record {|*Message; byte[] payload;|}? received = ();
     int attempts = 0;
     while attempts < 20 {
@@ -148,7 +138,6 @@ function testItReceiveNoWaitReturnsAvailableMessage() returns error? {
     }
 }
 
-// TC-QUEUE-CONS-06: receiveNoWait() returns () immediately, not after blocking like receive(timeout) does
 @test:Config {
     groups: ["integration", "queue-consumer"]
 }

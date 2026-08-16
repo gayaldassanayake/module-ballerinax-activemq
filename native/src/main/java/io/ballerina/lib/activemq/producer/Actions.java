@@ -49,7 +49,6 @@ public final class Actions {
         final MessageProducer producer;
         final boolean transacted;
         final BMap<BString, Object> defaultDestination;
-        // Guards send/commit/rollback; close() skips this lock so it can proceed during a blocked send().
         final Object sessionLock = new Object();
         volatile boolean closed = false;
 
@@ -74,7 +73,8 @@ public final class Actions {
             connection.start();
             int sessionMode = config.transacted() ? Session.SESSION_TRANSACTED : Session.AUTO_ACKNOWLEDGE;
             session = connection.createSession(sessionMode);
-            MessageProducer producer = session.createProducer(null); // unidentified producer
+            // A null destination creates a JMS unidentified producer.
+            MessageProducer producer = session.createProducer(null);
             ProducerState state = new ProducerState(
                     connection, session, producer, config.transacted(), config.destination());
             bProducer.addNativeData(NATIVE_STATE, state);

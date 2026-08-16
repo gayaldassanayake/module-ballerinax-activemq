@@ -18,12 +18,7 @@ import ballerina/lang.runtime;
 import ballerina/test;
 import ballerina/time;
 
-// Dedicated listener for client integration tests that need a subscriber (topic tests).
 listener Listener clientTestListener = check new Listener(BROKER_URL);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 1: Basic send and receive on a queue
-// ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
     groups: ["client"]
@@ -46,10 +41,6 @@ isolated function testClientSendAndReceiveFromQueue() returns error? {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 2: receive returns () when queue is empty within timeout
-// ─────────────────────────────────────────────────────────────────────────────
-
 @test:Config {
     groups: ["client"]
 }
@@ -59,10 +50,6 @@ isolated function testClientReceiveReturnsNilOnTimeout() returns error? {
     check consumer->close();
     test:assertTrue(received is (), "should return nil when no message arrives in timeout");
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 3: Multiple messages are received in the order they were sent
-// ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
     groups: ["client"]
@@ -89,10 +76,6 @@ isolated function testClientMultipleMessages() returns error? {
     test:assertEquals(received.length(), 3, "should receive all 3 sent messages");
     test:assertEquals(received, payloads, "messages should arrive in send order");
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 4: JMS headers and custom properties survive the send/receive roundtrip
-// ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
     groups: ["client"]
@@ -133,11 +116,6 @@ isolated function testClientMessageFieldsRoundtrip() returns error? {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 4b: an explicit priority of 0 (the legal JMS minimum) round-trips as 0,
-// not absent — it must not be dropped the way expiry: 0 used to be.
-// ─────────────────────────────────────────────────────────────────────────────
-
 @test:Config {
     groups: ["client"]
 }
@@ -158,11 +136,6 @@ isolated function testClientPriorityZeroRoundtrips() returns error? {
         test:assertEquals(received.priority, 0, "priority 0 should round-trip, not be dropped as absent");
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 5: Persistent and non-persistent delivery modes are reflected in received
-//         messages
-// ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
     groups: ["client"]
@@ -200,10 +173,6 @@ isolated function testClientPersistenceField() returns error? {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 6: replyTo header is preserved and returned as a typed destination
-// ─────────────────────────────────────────────────────────────────────────────
-
 @test:Config {
     groups: ["client"]
 }
@@ -229,10 +198,6 @@ isolated function testClientReplyToField() returns error? {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 7: Producer can publish to a JMS topic; a Listener service receives it
-// ─────────────────────────────────────────────────────────────────────────────
-
 isolated int clientTopicReceivedCount = 0;
 
 @test:Config {
@@ -250,7 +215,6 @@ isolated function testClientSendToTopic() returns error? {
         }
     };
     check clientTestListener.attach(topicSvc, "client-topic-svc");
-    // Allow the subscriber to fully register before the producer sends.
     runtime:sleep(2);
 
     MessageProducer producer = check new (BROKER_URL);
@@ -267,10 +231,6 @@ isolated function testClientSendToTopic() returns error? {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 8: Calling send after close() returns an Error
-// ─────────────────────────────────────────────────────────────────────────────
-
 @test:Config {
     groups: ["client"]
 }
@@ -283,10 +243,6 @@ isolated function testClientClose() returns error? {
     }, {queueName: "client.test.close.queue"});
     test:assertTrue(result is Error, "send after close should return an Error");
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 9: messageId, timestamp, and destination are populated by the broker
-// ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
     groups: ["client"]
@@ -305,13 +261,10 @@ isolated function testClientBrokerPopulatedFields() returns error? {
     check consumer->close();
     test:assertTrue(received is Message, "should receive message");
     if received is Message {
-        // Broker assigns its own message ID
         test:assertTrue(received.messageId is string, "broker-assigned messageId should be present");
         test:assertTrue((<string>received.messageId).length() > 0, "broker-assigned messageId should be non-empty");
-        // Broker sets the timestamp at send time
         int? timestamp = received.timestamp;
         test:assertTrue(timestamp is int && timestamp > 0, "broker-assigned timestamp should be > 0");
-        // Destination should reflect where the message landed
         Destination? destination = received.destination;
         test:assertTrue(destination is Queue, "destination should be a queue destination");
         if destination is Queue {
@@ -320,16 +273,11 @@ isolated function testClientBrokerPopulatedFields() returns error? {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 10: receive with a message selector — only matching messages returned
-// ─────────────────────────────────────────────────────────────────────────────
-
 @test:Config {
     groups: ["client", "selector"]
 }
 isolated function testClientReceiveWithSelector() returns error? {
     MessageProducer producer = check new (BROKER_URL);
-    // Send two messages: one with region=APAC and one with region=EMEA.
     check producer->send({
         messageId: "sel-apac",
         payload: "APAC order".toBytes(),
@@ -342,13 +290,11 @@ isolated function testClientReceiveWithSelector() returns error? {
     }, {queueName: "client.test.selector.queue"});
     check producer->close();
 
-    // Receive with selector — should get only APAC even though EMEA arrived first.
     MessageConsumer apacConsumer = check new (BROKER_URL,
         destination = {queueName: "client.test.selector.queue"}, messageSelector = "region = 'APAC'");
     record {|*Message; byte[] payload;|}? apacMsg = check apacConsumer->receive(5000);
     check apacConsumer->close();
 
-    // Drain the EMEA message that was skipped.
     MessageConsumer emeaConsumer = check new (BROKER_URL,
         destination = {queueName: "client.test.selector.queue"}, messageSelector = "region = 'EMEA'");
     Message? emeaMsg = check emeaConsumer->receive(3000);
@@ -361,10 +307,6 @@ isolated function testClientReceiveWithSelector() returns error? {
     }
     test:assertTrue(emeaMsg is Message, "EMEA message should also be receivable with its selector");
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 11: receive without a configured selector still works (backward compat)
-// ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
     groups: ["client", "selector"]
@@ -384,10 +326,6 @@ isolated function testClientReceiveWithoutSelector() returns error? {
     test:assertTrue(msg is Message, "receive without a configured selector should still work");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 12: Transacted producer — commit delivers all messages atomically
-// ─────────────────────────────────────────────────────────────────────────────
-
 @test:Config {
     groups: ["client", "transaction"]
 }
@@ -404,7 +342,6 @@ isolated function testClientTransactionCommit() returns error? {
     check producer->'commit();
     check producer->close();
 
-    // Both messages must now be visible.
     MessageConsumer consumer = check new (BROKER_URL, destination = {queueName: "client.tx.commit.queue"});
     Message? msg1 = check consumer->receive(5000);
     Message? msg2 = check consumer->receive(5000);
@@ -413,10 +350,6 @@ isolated function testClientTransactionCommit() returns error? {
     test:assertTrue(msg1 is Message, "first committed message should be received");
     test:assertTrue(msg2 is Message, "second committed message should be received");
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 13: Transacted producer — rollback discards all messages
-// ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
     groups: ["client", "transaction"]
@@ -431,16 +364,11 @@ isolated function testClientTransactionRollback() returns error? {
     check producer->'rollback();
     check producer->close();
 
-    // Queue must be empty — rollback discarded the message.
     MessageConsumer consumer = check new (BROKER_URL, destination = {queueName: "client.tx.rollback.queue"});
     Message? msg = check consumer->receive(2000);
     check consumer->close();
     test:assertTrue(msg is (), "rolled-back message must not be delivered");
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 14: Transacted producer — close without commit implicitly rolls back
-// ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
     groups: ["client", "transaction"]
@@ -452,7 +380,7 @@ isolated function testClientTransactionCloseRollsBack() returns error? {
         messageId: "tx-close-1",
         payload: "implicit rollback".toBytes()
     }, {queueName: "client.tx.close.queue"});
-    check producer->close(); // close without commit — broker must discard the message
+    check producer->close();
 
     MessageConsumer consumer = check new (BROKER_URL, destination = {queueName: "client.tx.close.queue"});
     Message? msg = check consumer->receive(2000);
@@ -460,17 +388,11 @@ isolated function testClientTransactionCloseRollsBack() returns error? {
     test:assertTrue(msg is (), "closing a transaction without committing must roll back");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 15: Scheduled delivery — the message is withheld until the scheduled delay elapses
-// (requires schedulerSupport="true" in the test broker's activemq.xml)
-// ─────────────────────────────────────────────────────────────────────────────
-
 @test:Config {
     groups: ["client", "scheduler"]
 }
 function testClientScheduledDelivery() returns error? {
     MessageProducer producer = check new (BROKER_URL);
-    // Schedule delivery 4 seconds in the future.
     check producer->send({
         messageId: "sched-1",
         payload: "scheduled message".toBytes(),
@@ -479,21 +401,14 @@ function testClientScheduledDelivery() returns error? {
     check producer->close();
 
     MessageConsumer consumer = check new (BROKER_URL, destination = {queueName: "client.scheduled.queue"});
-    // Immediate receive must time out — message is not yet due.
     Message? early = check consumer->receive(1000);
     test:assertTrue(early is (), "message should not be delivered before the scheduled delay");
 
-    // Wait for the scheduler to release the message.
     runtime:sleep(6);
     Message? msg = check consumer->receive(3000);
     check consumer->close();
     test:assertTrue(msg is Message, "message should be delivered after the scheduled delay");
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 16: Every `activemq:Property` value type (boolean, int, byte, float, string)
-//          survives the send/receive roundtrip with the correct Ballerina type
-// ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
     groups: ["client"]
@@ -535,7 +450,6 @@ isolated function testClientPropertyTypesRoundtrip() returns error? {
     }
 }
 
-// TC-PROPS-01: a byte[] property isn't a legal JMS message property - send() must drop it gracefully, not crash.
 @test:Config {
     groups: ["client"]
 }
@@ -565,13 +479,6 @@ isolated function testClientSendWithUnsupportedPropertyTypeDoesNotFail() returns
         }
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 17: Concurrent send() calls on one MessageProducer are serialized safely.
-// MessageProducer now holds one persistent JMS Session for its whole lifetime
-// (replacing the old Client's per-call session), so this exercises the fix for
-// the JMS Session thread-safety requirement under concurrent isolated-client calls.
-// ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
     groups: ["client", "concurrency"]
@@ -609,11 +516,6 @@ function testConcurrentProducerSendIsThreadSafe() returns error? {
         "all 3 concurrently-sent messages should arrive intact, none lost or corrupted");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 17b: close() must not hang behind a concurrent, indefinitely-blocking
-// receive(0) on the same consumer.
-// ─────────────────────────────────────────────────────────────────────────────
-
 @test:Config {
     groups: ["client", "concurrency"]
 }
@@ -632,11 +534,6 @@ function testReceiveDoesNotDeadlockClose() returns error? {
     test:assertTrue(received is (), "a receive() blocked when the consumer closes should unblock with nil");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 18: A transacted producer's commit()/rollback() after close() returns an
-// Error instead of panicking.
-// ─────────────────────────────────────────────────────────────────────────────
-
 @test:Config {
     groups: ["client", "transaction"]
 }
@@ -647,29 +544,14 @@ isolated function testClientTransactionCommitAfterCloseReturnsError() returns er
     test:assertTrue(result is Error, "commit after close should return an Error, not panic");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 19: A transacted producer's close() is idempotent, same as the plain
-// producer's (cleanup_tests.bal TC-CLEANUP-01), verified for the transacted
-// path specifically since task 6 collapsed Transaction into both.
-// ─────────────────────────────────────────────────────────────────────────────
-
 @test:Config {
     groups: ["client", "transaction"]
 }
 isolated function testClientTransactionDoubleCloseIdempotent() returns error? {
     MessageProducer producer = check new (BROKER_URL, transacted = true);
     check producer->close();
-    // Second close: () or Error are both acceptable; what matters is no panic.
     do { check producer->close(); } on fail { }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 20: A client-side send failure mid-transaction (an unsupported payload
-// type never reaches the broker) doesn't poison the transacted session --
-// rollback and close still work cleanly afterward, and nothing is delivered,
-// including the earlier message that was mapped successfully but never
-// committed.
-// ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
     groups: ["client", "transaction"]
@@ -683,7 +565,6 @@ function testClientTransactionRollbackAfterSendFailure() returns error? {
         payload: "will never be committed".toBytes()
     }, {queueName});
 
-    // An out-of-range priority fails validation before ever reaching the broker.
     Error? result = producer->send({payload: "will fail".toBytes(), priority: 15}, {queueName});
     test:assertTrue(result is Error, "sending with an invalid priority should fail, not panic");
 
@@ -697,11 +578,6 @@ function testClientTransactionRollbackAfterSendFailure() returns error? {
         "rollback after a send failure must discard the whole transaction, including the earlier message");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 21: A transacted consumer's commit()/rollback() after close() returns an
-// Error instead of panicking (symmetric with test 18, for MessageConsumer).
-// ─────────────────────────────────────────────────────────────────────────────
-
 @test:Config {
     groups: ["client", "transaction"]
 }
@@ -713,11 +589,6 @@ isolated function testClientConsumerTransactionCommitAfterCloseReturnsError() re
     test:assertTrue(result is Error, "commit after close should return an Error, not panic");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 22: A transacted consumer's close() is idempotent (symmetric with test
-// 19, for MessageConsumer).
-// ─────────────────────────────────────────────────────────────────────────────
-
 @test:Config {
     groups: ["client", "transaction"]
 }
@@ -725,15 +596,8 @@ isolated function testClientConsumerTransactionDoubleCloseIdempotent() returns e
     MessageConsumer consumer = check new (BROKER_URL,
         ackMode = SESSION_TRANSACTED, destination = {queueName: "client.tx.consumer.doubleclose.queue"});
     check consumer->close();
-    // Second close: () or Error are both acceptable; what matters is no panic.
     do { check consumer->close(); } on fail { }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test 23: commit() must not run concurrently with an in-flight receive() on the
-// same session - a JMS Session is single-threaded, so commit() has to wait for a
-// blocked receive() to release the session before it can proceed.
-// ─────────────────────────────────────────────────────────────────────────────
 
 @test:Config {
     groups: ["client", "concurrency"]
@@ -745,7 +609,8 @@ function testCommitWaitsForInFlightReceive() returns error? {
         ackMode = SESSION_TRANSACTED, destination = {queueName});
 
     future<Message|Error?> f = start consumer->receive(2000, Message);
-    runtime:sleep(0.2); // let the receive() strand grab the session lock first
+    // Ensure receive holds the session lock before commit is invoked.
+    runtime:sleep(0.2);
 
     time:Utc before = time:utcNow();
     check consumer->'commit();

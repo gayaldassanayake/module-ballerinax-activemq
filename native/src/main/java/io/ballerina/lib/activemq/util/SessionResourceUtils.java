@@ -53,12 +53,11 @@ public final class SessionResourceUtils {
             Runnable markClosed, String resourceName) {
         synchronized (stateMonitor) {
             if (isClosed.getAsBoolean()) {
-                return null; // idempotent
+                return null;
             }
             try {
                 connection.stop();
             } catch (JMSException ignored) {
-                // stop() failure is non-fatal; proceed to close() regardless
             }
             try {
                 connection.close();

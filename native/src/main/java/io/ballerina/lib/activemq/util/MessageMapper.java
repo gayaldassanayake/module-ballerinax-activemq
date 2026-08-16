@@ -127,7 +127,6 @@ public class MessageMapper {
 
     /** Populates every Message field except {@code payload}/{@code format}, shared by both receive paths. */
     private static void populateHeaders(BMap<BString, Object> result, Message message) throws JMSException {
-        // Standard JMS message headers
         result.put(MESSAGE_ID, StringUtils.fromString(message.getJMSMessageID()));
 
         long timestamp = message.getJMSTimestamp();
@@ -148,7 +147,6 @@ public class MessageMapper {
             result.put(DESTINATION_FIELD, toBallerinaDestination(message.getJMSDestination()));
         }
 
-        // Convert JMSDeliveryMode (1=non-persistent, 2=persistent) to boolean
         result.put(PERSISTENT_FIELD, message.getJMSDeliveryMode() == 2);
 
         result.put(REDELIVERED_FIELD, message.getJMSRedelivered());
@@ -176,7 +174,6 @@ public class MessageMapper {
             result.put(MESSAGE_USERID, StringUtils.fromString(userID));
         }
 
-        // Custom Properties
         BMap<BString, Object> props = ValueCreator.createMapValue(BALLERINA_PROPERTY_TYPE);
         Enumeration<?> propNames = message.getPropertyNames();
         while (propNames.hasMoreElements()) {
@@ -192,7 +189,7 @@ public class MessageMapper {
             } else if (value instanceof Short sh) {
                 props.put(bName, (long) sh);
             } else if (value instanceof Byte b) {
-                // Mask the signed JMS byte back to Ballerina's unsigned 0-255 range.
+                // JMS byte is signed; Ballerina byte is unsigned.
                 props.put(bName, b & 0xFF);
             } else if (value instanceof Float f) {
                 props.put(bName, (double) f);
@@ -236,7 +233,6 @@ public class MessageMapper {
         } catch (BError bError) {
             throw new ActiveMQDatabindingException("Data binding failed: " + bError.getDetails());
         }
-        // ObjectMessage/StreamMessage: only the untyped/default case has a fallback; a specific type doesn't.
         if (typeTag == TypeTags.ANYDATA_TAG) {
             String body = message.getBody(String.class);
             byte[] fallback = (body != null ? body : "").getBytes(StandardCharsets.UTF_8);
@@ -249,7 +245,6 @@ public class MessageMapper {
 
     private static Object getPayloadFromTextMessage(TextMessage message, Type payloadType, int typeTag)
             throws JMSException {
-        // TextMessage.getText() legally returns null for a message with no body.
         String rawText = message.getText();
         String text = rawText != null ? rawText : "";
         if (typeTag == TypeTags.ANYDATA_TAG) {
@@ -288,6 +283,7 @@ public class MessageMapper {
             } else if (value instanceof Short sh) {
                 payload.put(bKey, (long) sh);
             } else if (value instanceof Byte b) {
+                // JMS byte is signed; Ballerina byte is unsigned.
                 payload.put(bKey, b & 0xFF);
             } else if (value instanceof Float f) {
                 payload.put(bKey, (double) f);
@@ -335,7 +331,6 @@ public class MessageMapper {
             return ValueCreator.createArrayValue(bytes);
         }
 
-        // For other types, treat the bytes as a JSON string and convert.
         String jsonString = new String(bytes, StandardCharsets.UTF_8);
         return ValueUtils.convert(JsonUtils.parse(jsonString), payloadType);
     }
@@ -435,7 +430,7 @@ public class MessageMapper {
                 } else if (val instanceof Boolean b) {
                     jmsMsg.setBooleanProperty(propName, b);
                 } else if (val instanceof Integer i) {
-                    // Ballerina `byte` is boxed as Integer here, not Byte.
+                    // Ballerina byte arrives boxed as Integer at this native boundary.
                     jmsMsg.setByteProperty(propName, i.byteValue());
                 } else if (val != null) {
                     LOGGER.warning(() -> String.format(
@@ -446,7 +441,6 @@ public class MessageMapper {
             }
         }
 
-        // ActiveMQ Classic scheduler properties; take effect only when schedulerSupport="true" on the broker.
         Object scheduledDelay = bMsg.get(SCHEDULED_DELAY);
         if (scheduledDelay instanceof Long l) {
             jmsMsg.setLongProperty(AMQ_SCHEDULED_DELAY, l);
@@ -515,7 +509,7 @@ public class MessageMapper {
         } else if (value instanceof Boolean b) {
             message.setBoolean(name, b);
         } else if (value instanceof Integer i) {
-            // Ballerina `byte` is boxed as Integer here, not Byte.
+            // Ballerina byte arrives boxed as Integer at this native boundary.
             message.setByte(name, i.byteValue());
         } else if (value instanceof BArray bArray) {
             message.setBytes(name, bArray.getBytes());
@@ -549,10 +543,12 @@ public class MessageMapper {
             Object expiry = bMsg.get(EXPIRY_FIELD);
             if (expiry instanceof Long l) {
                 if (l == 0L) {
-                    return Message.DEFAULT_TIME_TO_LIVE; // 0 = never expires, per the documented contract
+                    // JMS defines a TTL of zero as no expiry.
+                    return Message.DEFAULT_TIME_TO_LIVE;
                 }
                 long ttl = l - System.currentTimeMillis();
-                return ttl <= 0 ? 1L : ttl; // a genuine past timestamp still expires ~immediately
+                // Using zero for a past expiry would disable expiry.
+                return ttl <= 0 ? 1L : ttl;
             }
         }
         return Message.DEFAULT_TIME_TO_LIVE;
