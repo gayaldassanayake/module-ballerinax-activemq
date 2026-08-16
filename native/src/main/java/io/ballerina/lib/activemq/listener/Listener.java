@@ -20,7 +20,6 @@ package io.ballerina.lib.activemq.listener;
 
 import io.ballerina.lib.activemq.util.ConnectionConfig;
 import io.ballerina.lib.activemq.util.ConnectionFactoryUtils;
-import io.ballerina.lib.activemq.util.RedeliveryPolicyConfig;
 import io.ballerina.runtime.api.Environment;
 import io.ballerina.runtime.api.values.BError;
 import io.ballerina.runtime.api.values.BMap;
@@ -34,7 +33,6 @@ import jakarta.jms.Session;
 import jakarta.jms.Topic;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.ActiveMQMessageConsumer;
-import org.apache.activemq.RedeliveryPolicy;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -264,30 +262,10 @@ public final class Listener {
         }
         ActiveMQMessageConsumer consumer = (ActiveMQMessageConsumer) baseConsumer;
         if (svcConfig.redeliveryPolicyConfig() != null) {
-            consumer.setRedeliveryPolicy(generateRedeliveryPolicy(svcConfig.redeliveryPolicyConfig()));
+            consumer.setRedeliveryPolicy(ConnectionFactoryUtils.buildRedeliveryPolicy(
+                    svcConfig.redeliveryPolicyConfig()));
         }
         return consumer;
-    }
-
-    /**
-     * Generates an ActiveMQ redelivery policy from the configuration.
-     *
-     * @param redeliveryPolicyConfig  the redelivery policy configuration
-     * @return the configured ActiveMQ redelivery policy
-     */
-    private static RedeliveryPolicy generateRedeliveryPolicy(
-            RedeliveryPolicyConfig redeliveryPolicyConfig) {
-        RedeliveryPolicy redeliveryPolicy = new RedeliveryPolicy();
-        redeliveryPolicy.setCollisionAvoidancePercent(redeliveryPolicyConfig.collisionAvoidancePercent());
-        redeliveryPolicy.setMaximumRedeliveries(redeliveryPolicyConfig.maximumRedeliveries());
-        redeliveryPolicy.setMaximumRedeliveryDelay(redeliveryPolicyConfig.maximumRedeliveryDelay());
-        redeliveryPolicy.setInitialRedeliveryDelay(redeliveryPolicyConfig.initialRedeliveryDelay());
-        redeliveryPolicy.setUseCollisionAvoidance(redeliveryPolicyConfig.useCollisionAvoidance());
-        redeliveryPolicy.setUseExponentialBackOff(redeliveryPolicyConfig.useExponentialBackOff());
-        redeliveryPolicy.setBackOffMultiplier(redeliveryPolicyConfig.backOffMultiplier());
-        redeliveryPolicy.setRedeliveryDelay(redeliveryPolicyConfig.redeliveryDelay());
-        redeliveryPolicy.setPreDispatchCheck(redeliveryPolicyConfig.preDispatchCheck());
-        return redeliveryPolicy;
     }
 
     /**

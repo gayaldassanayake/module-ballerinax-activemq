@@ -99,7 +99,8 @@ public final class ConnectionFactoryUtils {
         return policy;
     }
 
-    private static RedeliveryPolicy buildRedeliveryPolicy(RedeliveryPolicyConfig config) {
+    /** Builds an ActiveMQ redelivery policy; shared by the connection factory and per-consumer setup. */
+    public static RedeliveryPolicy buildRedeliveryPolicy(RedeliveryPolicyConfig config) {
         RedeliveryPolicy policy = new RedeliveryPolicy();
         policy.setCollisionAvoidancePercent(config.collisionAvoidancePercent());
         policy.setMaximumRedeliveries(config.maximumRedeliveries());
