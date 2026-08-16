@@ -535,10 +535,7 @@ isolated function testClientPropertyTypesRoundtrip() returns error? {
     }
 }
 
-// TC-PROPS-01: a byte[] property is a legal `Property` value but JMS message properties don't
-// support byte[] (only MapMessage entries do) - send() must drop it gracefully, not crash or
-// send a malformed message. (The dropped-with-a-warning behavior itself isn't independently
-// assertable from a Ballerina test, since it's a native-side log line.)
+// TC-PROPS-01: a byte[] property isn't a legal JMS message property - send() must drop it gracefully, not crash.
 @test:Config {
     groups: ["client"]
 }
@@ -686,11 +683,9 @@ function testClientTransactionRollbackAfterSendFailure() returns error? {
         payload: "will never be committed".toBytes()
     }, {queueName});
 
-    // int has no dispatch branch in MessageMapper.createOutgoingMessage -- fails before
-    // ever reaching the broker.
-    anydata unsupportedPayload = 5;
-    Error? result = producer->send({payload: unsupportedPayload}, {queueName});
-    test:assertTrue(result is Error, "sending an unsupported payload type should fail, not panic");
+    // An out-of-range priority fails validation before ever reaching the broker.
+    Error? result = producer->send({payload: "will fail".toBytes(), priority: 15}, {queueName});
+    test:assertTrue(result is Error, "sending with an invalid priority should fail, not panic");
 
     check producer->'rollback();
     check producer->close();

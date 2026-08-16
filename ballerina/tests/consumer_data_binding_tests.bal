@@ -308,3 +308,71 @@ function testUnrecognizedPropertyTypeFallsBackToString() returns error? {
         }
     }
 }
+
+// TC-DATABIND-10: an int payload - not string/byte[]/map - round-trips via a JSON-encoded
+// BytesMessage instead of failing to send.
+@test:Config {
+    groups: ["integration", "dataBinding"]
+}
+function testDataBindingIntegerPayload() returns error? {
+    check drainQueue("it.databind.int.queue");
+    MessageProducer producer = check new (brokerUrl, username = username, password = password);
+    int payload = 42;
+    check producer->send({payload}, {queueName: "it.databind.int.queue"});
+    check producer->close();
+
+    MessageConsumer consumer = check new (brokerUrl,
+        username = username, password = password, destination = {queueName: "it.databind.int.queue"});
+    record {|*Message; int payload;|}? received = check consumer->receive(5000);
+    check consumer->close();
+    test:assertTrue(received is Message, "should receive the sent message");
+    if received is Message {
+        test:assertEquals(received.payload, payload, "int payload should round-trip");
+    }
+}
+
+// TC-DATABIND-11: float, decimal, and boolean payloads round-trip the same JSON-encoded way as int.
+@test:Config {
+    groups: ["integration", "dataBinding"]
+}
+function testDataBindingOtherScalarPayloadTypes() returns error? {
+    check drainQueue("it.databind.floatpayload.queue");
+    check drainQueue("it.databind.decimalpayload.queue");
+    check drainQueue("it.databind.boolpayload.queue");
+
+    MessageProducer producer = check new (brokerUrl, username = username, password = password);
+    float floatPayload = 3.5;
+    decimal decimalPayload = 12.75d;
+    boolean boolPayload = true;
+    check producer->send({payload: floatPayload}, {queueName: "it.databind.floatpayload.queue"});
+    check producer->send({payload: decimalPayload}, {queueName: "it.databind.decimalpayload.queue"});
+    check producer->send({payload: boolPayload}, {queueName: "it.databind.boolpayload.queue"});
+    check producer->close();
+
+    MessageConsumer floatConsumer = check new (brokerUrl,
+        username = username, password = password, destination = {queueName: "it.databind.floatpayload.queue"});
+    record {|*Message; float payload;|}? receivedFloat = check floatConsumer->receive(5000);
+    check floatConsumer->close();
+    test:assertTrue(receivedFloat is Message, "should receive the float message");
+    if receivedFloat is Message {
+        test:assertEquals(receivedFloat.payload, floatPayload, "float payload should round-trip");
+    }
+
+    MessageConsumer decimalConsumer = check new (brokerUrl,
+        username = username, password = password, destination = {queueName: "it.databind.decimalpayload.queue"});
+    record {|*Message; decimal payload;|}? receivedDecimal = check decimalConsumer->receive(5000);
+    check decimalConsumer->close();
+    test:assertTrue(receivedDecimal is Message, "should receive the decimal message");
+    if receivedDecimal is Message {
+        test:assertEquals(receivedDecimal.payload, decimalPayload, "decimal payload should round-trip");
+    }
+
+    MessageConsumer boolConsumer = check new (brokerUrl,
+        username = username, password = password, destination = {queueName: "it.databind.boolpayload.queue"});
+    record {|*Message; boolean payload;|}? receivedBool = check boolConsumer->receive(5000);
+    check boolConsumer->close();
+    test:assertTrue(receivedBool is Message, "should receive the boolean message");
+    if receivedBool is Message {
+        test:assertEquals(receivedBool.payload, boolPayload, "boolean payload should round-trip");
+    }
+}

@@ -51,6 +51,7 @@ import jakarta.jms.TemporaryTopic;
 import jakarta.jms.TextMessage;
 import jakarta.jms.Topic;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
 import java.util.logging.Logger;
@@ -235,8 +236,7 @@ public class MessageMapper {
         } catch (BError bError) {
             throw new ActiveMQDatabindingException("Data binding failed: " + bError.getDetails());
         }
-        // ObjectMessage/StreamMessage: only the untyped/default case falls back to today's behavior;
-        // a specific requested type has no dispatch logic to honor it.
+        // ObjectMessage/StreamMessage: only the untyped/default case has a fallback; a specific type doesn't.
         if (typeTag == TypeTags.ANYDATA_TAG) {
             String body = message.getBody(String.class);
             byte[] fallback = (body != null ? body : "").getBytes(StandardCharsets.UTF_8);
@@ -446,8 +446,7 @@ public class MessageMapper {
             }
         }
 
-        // Scheduled delivery — ActiveMQ Classic scheduler properties.
-        // These take effect only when schedulerSupport="true" is set in the broker.
+        // ActiveMQ Classic scheduler properties; take effect only when schedulerSupport="true" on the broker.
         Object scheduledDelay = bMsg.get(SCHEDULED_DELAY);
         if (scheduledDelay instanceof Long l) {
             jmsMsg.setLongProperty(AMQ_SCHEDULED_DELAY, l);
@@ -468,7 +467,7 @@ public class MessageMapper {
         return jmsMsg;
     }
 
-    /** Creates a JMS message matching the payload's runtime type: string/byte[]/map -> Text/Bytes/MapMessage. */
+    /** Maps payload's runtime type: string/byte[]/map -> Text/Bytes/Map, other anydata -> JSON bytes. */
     @SuppressWarnings("unchecked")
     private static Message createOutgoingMessage(Session session, Object payload) throws JMSException {
         if (payload instanceof BString bString) {
@@ -476,7 +475,8 @@ public class MessageMapper {
             textMessage.setText(bString.getValue());
             return textMessage;
         }
-        if (payload instanceof BArray bArray) {
+        if (payload instanceof BArray bArray
+                && TypeUtils.getReferredType(bArray.getElementType()).getTag() == TypeTags.BYTE_TAG) {
             BytesMessage bytesMessage = session.createBytesMessage();
             bytesMessage.writeBytes(bArray.getBytes());
             return bytesMessage;
@@ -489,8 +489,20 @@ public class MessageMapper {
             }
             return mapMessage;
         }
-        throw new JMSException("Unsupported payload type for sending: "
-                + (payload == null ? "null" : payload.getClass().getSimpleName()));
+        return createJsonBytesMessage(session, payload);
+    }
+
+    private static Message createJsonBytesMessage(Session session, Object payload) throws JMSException {
+        ByteArrayOutputStream jsonOut = new ByteArrayOutputStream();
+        try {
+            JsonUtils.serialize(JsonUtils.convertToJson(payload), jsonOut);
+        } catch (BError e) {
+            throw new JMSException("Unsupported payload type for sending: "
+                    + (payload == null ? "null" : payload.getClass().getSimpleName()));
+        }
+        BytesMessage bytesMessage = session.createBytesMessage();
+        bytesMessage.writeBytes(jsonOut.toByteArray());
+        return bytesMessage;
     }
 
     private static void setMapEntry(MapMessage message, String name, Object value) throws JMSException {
