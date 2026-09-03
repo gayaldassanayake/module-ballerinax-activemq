@@ -101,7 +101,7 @@ modules = [
 
 [[package]]
 org = "ballerinax"
-name = "activemq"
+name = "activemq.classic"
 version = "0.1.0"
 dependencies = [
 	{org = "ballerina", name = "crypto"},
@@ -111,6 +111,6 @@ dependencies = [
 	{org = "ballerina", name = "time"}
 ]
 modules = [
-	{org = "ballerinax", packageName = "activemq", moduleName = "activemq"}
+	{org = "ballerinax", packageName = "activemq.classic", moduleName = "activemq.classic"}
 ]
 
