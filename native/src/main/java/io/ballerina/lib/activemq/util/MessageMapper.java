@@ -199,7 +199,7 @@ public class MessageMapper {
                 props.put(bName, b);
             } else if (value != null) {
                 LOGGER.warning(() -> String.format(
-                        "Property '%s' of unsupported type '%s' cannot be represented as an activemq:Property "
+                        "Property '%s' of unsupported type '%s' cannot be represented as a classic:Property "
                                 + "(boolean, int, byte, float, string, or byte[]) - falling back to toString()",
                         name, value.getClass().getSimpleName()));
                 props.put(bName, StringUtils.fromString(value.toString()));
@@ -266,7 +266,7 @@ public class MessageMapper {
         if (typeTag != TypeTags.ANYDATA_TAG && typeTag != TypeTags.MAP_TAG && typeTag != TypeTags.RECORD_TYPE_TAG) {
             throw new ActiveMQDatabindingException(
                     String.format("Data binding failed: Cannot bind MapMessage to type '%s'. "
-                            + "Expected 'map<activemq:Property>'", payloadType));
+                            + "Expected 'map<classic:Property>'", payloadType));
         }
         BMap<BString, Object> payload = ValueCreator.createMapValue(BALLERINA_PROPERTY_TYPE);
         Enumeration<?> mapNames = message.getMapNames();
@@ -296,7 +296,7 @@ public class MessageMapper {
             } else if (value != null) {
                 LOGGER.warning(() -> String.format(
                         "Dropped MapMessage entry '%s' of unsupported type '%s' - value cannot be represented as "
-                                + "an activemq:Property (boolean, int, byte, float, string, or byte[])",
+                                + "a classic:Property (boolean, int, byte, float, string, or byte[])",
                         key, value.getClass().getSimpleName()));
             }
         }

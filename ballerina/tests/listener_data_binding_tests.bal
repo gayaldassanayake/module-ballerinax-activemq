@@ -110,7 +110,7 @@ function testListenerOnMessageUntypedTextPayloadIsBytes() returns error? {
     byte[] received = [];
     lock { received = listenerDataBindingUntypedTextPayload.clone(); }
     test:assertEquals(check string:fromBytes(received), "Untyped listener payload",
-        "an unnarrowed activemq:Message payload for a TextMessage should be byte[], not string");
+        "an unnarrowed classic:Message payload for a TextMessage should be byte[], not string");
 }
 
 @test:Config {

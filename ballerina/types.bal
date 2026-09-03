@@ -16,21 +16,21 @@
 
 import ballerina/crypto;
 
-# The ActiveMQ service type attached to an `activemq:Listener` for asynchronous (push-based)
+# The ActiveMQ service type attached to a `classic:Listener` for asynchronous (push-based)
 # consumption.
 #
 # An attached service must declare a remote `onMessage` method and may optionally declare an
 # `onError` method. The accepted signatures are:
 # ```ballerina
-# remote function onMessage(record {|*activemq:Message; T payload;|} message) returns activemq:Error?;
-# remote function onMessage(record {|*activemq:Message; T payload;|} message, activemq:Caller caller) returns activemq:Error?;
-# remote function onMessage(activemq:Message message) returns activemq:Error?;
-# remote function onError(activemq:Error err) returns activemq:Error?;
+# remote function onMessage(record {|*classic:Message; T payload;|} message) returns classic:Error?;
+# remote function onMessage(record {|*classic:Message; T payload;|} message, classic:Caller caller) returns classic:Error?;
+# remote function onMessage(classic:Message message) returns classic:Error?;
+# remote function onError(classic:Error err) returns classic:Error?;
 # ```
 # Declaring a narrowed `payload` type (`T`) causes the message payload to be data-bound into that
-# type; declaring the base `activemq:Message` type yields the raw payload as `anydata`.
+# type; declaring the base `classic:Message` type yields the raw payload as `anydata`.
 # The subscription (queue or topic) and consumer options are supplied via the
-# `@activemq:ServiceConfig` annotation on the service.
+# `@classic:ServiceConfig` annotation on the service.
 public type Service distinct service object {};
 
 # Represents a queue destination for point-to-point messaging.
@@ -336,8 +336,8 @@ public type TopicConfig record {|
     string subscriberName?;
 |};
 
-# The service configuration type for the `activemq:Service`.
+# The service configuration type for the `classic:Service`.
 public type ServiceConfiguration QueueConfig|TopicConfig;
 
-# Annotation to configure the `activemq:Service`.
+# Annotation to configure the `classic:Service`.
 public annotation ServiceConfiguration ServiceConfig on service;

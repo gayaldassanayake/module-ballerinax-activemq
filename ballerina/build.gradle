@@ -24,7 +24,7 @@ plugins {
 
 description = 'Ballerina - ActiveMQ Ballerina Connector'
 
-def packageName = "activemq"
+def packageName = "activemq.classic"
 def packageOrg = "ballerinax"
 def tomlVersion = stripBallerinaExtensionVersion("${project.version}")
 def ballerinaTomlFilePlaceHolder = new File("${project.rootDir}/build-config/resources/Ballerina.toml")

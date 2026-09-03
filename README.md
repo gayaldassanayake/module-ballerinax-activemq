@@ -1,9 +1,9 @@
-# module-ballerinax-activemq
+# module-ballerinax-activemq.classic
 
-[![Build](https://github.com/ballerina-platform/module-ballerinax-activemq/actions/workflows/ci.yml/badge.svg)](https://github.com/ballerina-platform/module-ballerinax-activemq/actions/workflows/ci.yml)
-[![Trivy](https://github.com/ballerina-platform/module-ballerinax-activemq/actions/workflows/trivy-scan.yml/badge.svg)](https://github.com/ballerina-platform/module-ballerinax-activemq/actions/workflows/trivy-scan.yml)
-[![GraalVM Check](https://github.com/ballerina-platform/module-ballerinax-activemq/actions/workflows/build-with-bal-test-graalvm.yml/badge.svg)](https://github.com/ballerina-platform/module-ballerinax-activemq/actions/workflows/build-with-bal-test-graalvm.yml)
-[![GitHub Last Commit](https://img.shields.io/github/last-commit/ballerina-platform/module-ballerinax-activemq.svg)](https://github.com/ballerina-platform/module-ballerinax-activemq/commits/main)
+[![Build](https://github.com/ballerina-platform/module-ballerinax-activemq.classic/actions/workflows/ci.yml/badge.svg)](https://github.com/ballerina-platform/module-ballerinax-activemq.classic/actions/workflows/ci.yml)
+[![Trivy](https://github.com/ballerina-platform/module-ballerinax-activemq.classic/actions/workflows/trivy-scan.yml/badge.svg)](https://github.com/ballerina-platform/module-ballerinax-activemq.classic/actions/workflows/trivy-scan.yml)
+[![GraalVM Check](https://github.com/ballerina-platform/module-ballerinax-activemq.classic/actions/workflows/build-with-bal-test-graalvm.yml/badge.svg)](https://github.com/ballerina-platform/module-ballerinax-activemq.classic/actions/workflows/build-with-bal-test-graalvm.yml)
+[![GitHub Last Commit](https://img.shields.io/github/last-commit/ballerina-platform/module-ballerinax-activemq.classic.svg)](https://github.com/ballerina-platform/module-ballerinax-activemq.classic/commits/main)
 [![GitHub Issues](https://img.shields.io/github/issues/ballerina-platform/ballerina-library/module/activemq.svg?label=Open%20Issues)](https://github.com/ballerina-platform/ballerina-library/labels/module%2Factivemq)
 
 Ballerina connector for the Apache ActiveMQ (Classic) message broker.
@@ -50,17 +50,17 @@ In your `Ballerina.toml`:
 ```toml
 [[dependency]]
 org = "ballerinax"
-name = "activemq"
+name = "activemq.classic"
 version = "0.1.0"
 ```
 
 ### 3. Send a message to a queue
 
 ```ballerina
-import ballerinax/activemq;
+import ballerinax/activemq.classic;
 
 public function main() returns error? {
-    activemq:MessageProducer producer = check new ("tcp://localhost:61616",
+    classic:MessageProducer producer = check new ("tcp://localhost:61616",
         username = "admin",
         password = "admin"
     );
@@ -82,7 +82,7 @@ A producer can also be configured with a default `destination`, letting you omit
 `send()` call unless you need to override it for a specific message:
 
 ```ballerina
-activemq:MessageProducer producer = check new ("tcp://localhost:61616",
+classic:MessageProducer producer = check new ("tcp://localhost:61616",
     destination = {queueName: "orders.queue"}
 );
 check producer->send({payload: "{'item':'book','qty':2}".toBytes()});
@@ -93,18 +93,18 @@ check producer->send({payload: "{'item':'book','qty':2}".toBytes()});
 A `MessageConsumer` is bound to a single queue or topic for its whole lifetime:
 
 ```ballerina
-import ballerinax/activemq;
+import ballerinax/activemq.classic;
 import ballerina/io;
 
 public function main() returns error? {
-    activemq:MessageConsumer consumer = check new ("tcp://localhost:61616",
+    classic:MessageConsumer consumer = check new ("tcp://localhost:61616",
         username = "admin",
         password = "admin",
         destination = {queueName: "orders.queue"}
     );
 
-    record {|*activemq:Message; string payload;|}? msg = check consumer->receive(5000);
-    if msg is activemq:Message {
+    record {|*classic:Message; string payload;|}? msg = check consumer->receive(5000);
+    if msg is classic:Message {
         io:println("Received: ", msg.payload);
     }
 
@@ -114,7 +114,7 @@ public function main() returns error? {
 
 The `payload` field's declared type in the target record determines how the message body is
 converted — `string`/`xml` for a `TextMessage`, `byte[]` for a `BytesMessage`, or a `map`/record
-shape for a `MapMessage`. Omit the explicit type (`activemq:Message? msg = check consumer->receive(5000);`)
+shape for a `MapMessage`. Omit the explicit type (`classic:Message? msg = check consumer->receive(5000);`)
 to get the JMS-message-appropriate default representation instead.
 
 ### 5. Subscribe with a Listener service
@@ -123,19 +123,19 @@ The `Listener` delivers each message pushed to a queue (or topic) to the `onMess
 remote method:
 
 ```ballerina
-import ballerinax/activemq;
+import ballerinax/activemq.classic;
 import ballerina/log;
 
-listener activemq:Listener mqListener = check new ("tcp://localhost:61616",
+listener classic:Listener mqListener = check new ("tcp://localhost:61616",
     username = "admin",
     password = "admin"
 );
 
-@activemq:ServiceConfig {
+@classic:ServiceConfig {
     queueName: "orders.queue"
 }
-service activemq:Service on mqListener {
-    remote function onMessage(activemq:Message message) returns error? {
+service classic:Service on mqListener {
+    remote function onMessage(classic:Message message) returns error? {
         string text = check string:fromBytes(check message.payload.ensureType());
         log:printInfo("Processing order: " + text);
     }
@@ -148,8 +148,8 @@ Use `topicName` instead of `queueName` to subscribe to a JMS topic.
 way `MessageConsumer.receive()` does:
 
 ```ballerina
-service activemq:Service on mqListener {
-    remote function onMessage(record {|*activemq:Message; string payload;|} message) returns error? {
+service classic:Service on mqListener {
+    remote function onMessage(record {|*classic:Message; string payload;|} message) returns error? {
         log:printInfo("Processing order: " + message.payload);
     }
 }
@@ -176,7 +176,7 @@ Configure the producer with `transacted: true`, then group multiple sends into a
 atomic operation:
 
 ```ballerina
-activemq:MessageProducer producer = check new ("tcp://localhost:61616", transacted = true);
+classic:MessageProducer producer = check new ("tcp://localhost:61616", transacted = true);
 check producer->send({correlationId: "tx-1", payload: "order A".toBytes()}, {queueName: "orders.queue"});
 check producer->send({correlationId: "tx-2", payload: "audit A".toBytes()}, {queueName: "audit.queue"});
 check producer->'commit();   // both messages are delivered together
@@ -184,7 +184,7 @@ check producer->close();
 ```
 
 Call `'rollback()` (or simply `close()` without committing) to discard all buffered
-messages. `'commit()`/`'rollback()` return an `activemq:Error` if the producer wasn't
+messages. `'commit()`/`'rollback()` return a `classic:Error` if the producer wasn't
 configured with `transacted: true`.
 
 ### 8. SSL / TLS connection
@@ -192,7 +192,7 @@ configured with `transacted: true`.
 Pass a `secureSocket` block to connect over `ssl://`:
 
 ```ballerina
-activemq:MessageProducer producer = check new ("ssl://localhost:61617",
+classic:MessageProducer producer = check new ("ssl://localhost:61617",
     secureSocket = {
         cert: "/path/to/broker.pem",                 // broker's CA certificate
         key: {
@@ -213,11 +213,11 @@ expression:
 
 ```ballerina
 // Only receive messages where the "region" property equals "APAC"
-activemq:MessageConsumer consumer = check new ("tcp://localhost:61616",
+classic:MessageConsumer consumer = check new ("tcp://localhost:61616",
     destination = {queueName: "orders.queue"},
     messageSelector = "region = 'APAC'"
 );
-activemq:Message? msg = check consumer->receive(5000);
+classic:Message? msg = check consumer->receive(5000);
 ```
 
 The same `messageSelector` field is available in `@ServiceConfig` for listener services.
@@ -229,7 +229,7 @@ The same `messageSelector` field is available in `@ServiceConfig` for listener s
 message that's rolled back or left unacknowledged:
 
 ```ballerina
-activemq:MessageConsumer consumer = check new ("tcp://localhost:61616",
+classic:MessageConsumer consumer = check new ("tcp://localhost:61616",
     destination = {queueName: "orders.queue"},
     prefetchPolicy = {queuePrefetchSize: 100},
     redeliveryPolicy = {maximumRedeliveries: 3, initialRedeliveryDelay: 2000}

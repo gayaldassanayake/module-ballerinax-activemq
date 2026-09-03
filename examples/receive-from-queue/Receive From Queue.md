@@ -1,6 +1,6 @@
 # Receive From Queue
 
-Pull-receives messages from an ActiveMQ queue using `activemq:MessageConsumer`, narrowing the
+Pull-receives messages from an ActiveMQ queue using `classic:MessageConsumer`, narrowing the
 payload to a `string` on the way out.
 
 ## Prerequisites

@@ -139,16 +139,16 @@ public class Service {
                 continue;
             }
             throw createError("Error",
-                    "onMessage method parameters must be of type 'activemq:Message' (or a record type that " +
-                            "includes it, narrowing 'payload') or 'activemq:Caller'.");
+                    "onMessage method parameters must be of type 'classic:Message' (or a record type that " +
+                            "includes it, narrowing 'payload') or 'classic:Caller'.");
         }
 
         if (Objects.isNull(message)) {
-            throw createError("Error", "Required parameter 'activemq:Message' cannot be found.");
+            throw createError("Error", "Required parameter 'classic:Message' cannot be found.");
         }
     }
 
-    /** Checks candidateType is activemq:Message, or a record narrowing only its payload field's type. */
+    /** Checks candidateType is classic:Message, or a record narrowing only its payload field's type. */
     private static boolean isMessageCompatibleType(Type candidateType) {
         if (TypeUtils.isSameType(MSG_TYPE, candidateType)) {
             return true;
@@ -186,14 +186,14 @@ public class Service {
     private static void validateOnErrorMethod(RemoteMethodType onErrorMethod) {
         if (onErrorMethod.getParameters().length != 1) {
             throw createError("Error",
-                    "onError method must have exactly one parameter of type 'activemq:Error'.");
+                    "onError method must have exactly one parameter of type 'classic:Error'.");
         }
 
         Parameter parameter = onErrorMethod.getParameters()[0];
         Type parameterType = TypeUtils.getReferredType(parameter.type);
         if (!TypeUtils.isSameType(ERROR_TYPE, parameterType)) {
             throw createError("Error",
-                    "onError method parameter must be of type 'activemq:Error'.");
+                    "onError method parameter must be of type 'classic:Error'.");
         }
     }
 

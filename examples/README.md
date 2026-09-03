@@ -1,17 +1,17 @@
 # Examples
 
-The `ballerinax/activemq` connector provides practical examples illustrating usage in various
-scenarios. Explore these [examples](https://github.com/ballerina-platform/module-ballerinax-activemq/tree/main/examples)
+The `ballerinax/activemq.classic` connector provides practical examples illustrating usage in various
+scenarios. Explore these [examples](https://github.com/ballerina-platform/module-ballerinax-activemq.classic/tree/main/examples)
 to understand how to produce, consume, and reliably process messages with an ActiveMQ broker.
 
 1. [Send To Queue](send-to-queue/Send%20To%20Queue.md) - Send a small batch of orders to a queue
-   with `activemq:MessageProducer`. The most basic point-to-point send flow.
+   with `classic:MessageProducer`. The most basic point-to-point send flow.
 
 2. [Receive From Queue](receive-from-queue/Receive%20From%20Queue.md) - Pull-receive messages from
-   a queue with `activemq:MessageConsumer`, narrowing the payload to a `string` at the call site.
+   a queue with `classic:MessageConsumer`, narrowing the payload to a `string` at the call site.
 
 3. [Listener Service](listener-service/Listener%20Service.md) - Subscribe to a queue declaratively
-   with `activemq:Listener`/`activemq:Service`, processing each message as it's pushed to the
+   with `classic:Listener`/`classic:Service`, processing each message as it's pushed to the
    service instead of pulling for it.
 
 ## Prerequisites
@@ -45,7 +45,7 @@ subscribed when the messages arrive.
 
 ## Running against local, unpublished changes
 
-Each example's `Ballerina.toml` depends on the published `ballerinax/activemq` package. To run an
+Each example's `Ballerina.toml` depends on the published `ballerinax/activemq.classic` package. To run an
 example against local changes instead:
 
 1. Build and push the module to your local Ballerina repository (see the main
@@ -61,7 +61,7 @@ example against local changes instead:
    ```toml
    [[dependency]]
    org = "ballerinax"
-   name = "activemq"
+   name = "activemq.classic"
    version = "0.1.0"
    repository = "local"
    ```

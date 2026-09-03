@@ -22,7 +22,7 @@ public isolated client class MessageConsumer {
     # Initializes the ActiveMQ message consumer with the specified broker URL and configurations.
     #
     # ```ballerina
-    # activemq:MessageConsumer consumer = check new ("tcp://localhost:61616",
+    # classic:MessageConsumer consumer = check new ("tcp://localhost:61616",
     #     username = "admin",
     #     password = "admin",
     #     destination = {queueName: "orders.queue"}
@@ -35,7 +35,7 @@ public isolated client class MessageConsumer {
     #         - Failover: `"failover:(tcp://host1:61616,tcp://host2:61616)"`
     # + configurations - The consumer configurations including authentication, SSL, policies,
     #                    acknowledgement mode, and the destination to consume from
-    # + return - `activemq:Error` if the initialization fails, `()` otherwise
+    # + return - `classic:Error` if the initialization fails, `()` otherwise
     public isolated function init(string url, *ConsumerConfiguration configurations) returns Error? {
         check validateConnectionConfigurations(configurations);
         return self.initConsumer(url, configurations);
@@ -50,15 +50,15 @@ public isolated client class MessageConsumer {
     # Returns `()` if no message arrives within the timeout.
     #
     # ```ballerina
-    # activemq:Message? msg = check consumer->receive(5000);
-    # record {|*activemq:Message; string payload;|}? typedMsg = check consumer->receive(5000);
+    # classic:Message? msg = check consumer->receive(5000);
+    # record {|*classic:Message; string payload;|}? typedMsg = check consumer->receive(5000);
     # ```
     #
     # + timeoutMs - Maximum time in milliseconds to wait for a message
     # + T - Optional type description of the expected message shape. The `payload` field's
     #       declared type in `T` determines how the received message body is converted; leave
     #       unset to get the JMS-message-appropriate default representation
-    # + return - The received message (as `T`), `()` on timeout, or `activemq:Error` on failure
+    # + return - The received message (as `T`), `()` on timeout, or `classic:Error` on failure
     #            or if the payload cannot be converted to the requested type
     isolated remote function receive(int timeoutMs = 5000,
             typedesc<Message> T = <>) returns T|Error? = @java:Method {
@@ -69,14 +69,14 @@ public isolated client class MessageConsumer {
     # waiting. Returns `()` if no message is currently available.
     #
     # ```ballerina
-    # activemq:Message? msg = check consumer->receiveNoWait();
-    # record {|*activemq:Message; string payload;|}? typedMsg = check consumer->receiveNoWait();
+    # classic:Message? msg = check consumer->receiveNoWait();
+    # record {|*classic:Message; string payload;|}? typedMsg = check consumer->receiveNoWait();
     # ```
     #
     # + T - Optional type description of the expected message shape. The `payload` field's
     #       declared type in `T` determines how the received message body is converted; leave
     #       unset to get the JMS-message-appropriate default representation
-    # + return - The received message (as `T`), `()` if none is available, or `activemq:Error` on
+    # + return - The received message (as `T`), `()` if none is available, or `classic:Error` on
     #            failure or if the payload cannot be converted to the requested type
     isolated remote function receiveNoWait(typedesc<Message> T = <>) returns T|Error? = @java:Method {
         'class: "io.ballerina.lib.activemq.consumer.Actions"
@@ -87,14 +87,14 @@ public isolated client class MessageConsumer {
     # by this consumer's session up to and including it.
     #
     # ```ballerina
-    # activemq:Message? msg = check consumer->receive(5000);
-    # if msg is activemq:Message {
+    # classic:Message? msg = check consumer->receive(5000);
+    # if msg is classic:Message {
     #     check consumer->acknowledge(msg);
     # }
     # ```
     #
     # + message - The message to acknowledge
-    # + return - `activemq:Error` if acknowledgement fails, `()` otherwise
+    # + return - `classic:Error` if acknowledgement fails, `()` otherwise
     isolated remote function acknowledge(Message message) returns Error? = @java:Method {
         'class: "io.ballerina.lib.activemq.consumer.Actions"
     } external;
@@ -106,7 +106,7 @@ public isolated client class MessageConsumer {
     # check consumer->'commit();
     # ```
     #
-    # + return - `activemq:Error` if the commit fails, `()` otherwise
+    # + return - `classic:Error` if the commit fails, `()` otherwise
     isolated remote function 'commit() returns Error? = @java:Method {
         'class: "io.ballerina.lib.activemq.consumer.Actions"
     } external;
@@ -118,7 +118,7 @@ public isolated client class MessageConsumer {
     # check consumer->'rollback();
     # ```
     #
-    # + return - `activemq:Error` if the rollback fails, `()` otherwise
+    # + return - `classic:Error` if the rollback fails, `()` otherwise
     isolated remote function 'rollback() returns Error? = @java:Method {
         'class: "io.ballerina.lib.activemq.consumer.Actions"
     } external;
@@ -129,7 +129,7 @@ public isolated client class MessageConsumer {
     # check consumer->close();
     # ```
     #
-    # + return - `activemq:Error` if closing fails, `()` otherwise
+    # + return - `classic:Error` if closing fails, `()` otherwise
     isolated remote function close() returns Error? = @java:Method {
         'class: "io.ballerina.lib.activemq.consumer.Actions"
     } external;

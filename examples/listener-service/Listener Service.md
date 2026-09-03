@@ -1,6 +1,6 @@
 # Listener Service
 
-Subscribes to an ActiveMQ queue with a declarative `activemq:Listener`/`activemq:Service` pair,
+Subscribes to an ActiveMQ queue with a declarative `classic:Listener`/`classic:Service` pair,
 processing each message as it's pushed to the service instead of pulling for it.
 
 ## Prerequisites
@@ -15,9 +15,9 @@ bal run
 
 ## What it does
 
-* Declares a `listener activemq:Listener` bound to the broker.
-* Attaches an `activemq:Service` configured for the `examples.orders.queue` queue via
-  `@activemq:ServiceConfig`.
+* Declares a `listener classic:Listener` bound to the broker.
+* Attaches a `classic:Service` configured for the `examples.orders.queue` queue via
+  `@classic:ServiceConfig`.
 * Its `onMessage` remote method narrows the payload to `string` and logs each order as it arrives.
 
 Expected output (once [Send To Queue](../send-to-queue/Send%20To%20Queue.md) runs in another

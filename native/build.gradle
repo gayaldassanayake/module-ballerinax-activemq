@@ -103,7 +103,7 @@ jar {
 
 // Keep test helpers out of the published native JAR.
 tasks.register('testJar', Jar) {
-    archiveBaseName = 'activemq-native-tests'
+    archiveBaseName = 'activemq.classic-native-tests'
     archiveVersion = project.version.toString()
     from sourceSets.test.output
 }

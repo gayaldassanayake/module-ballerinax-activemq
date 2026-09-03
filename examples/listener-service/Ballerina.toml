@@ -6,5 +6,5 @@ distribution = "2201.12.10"
 
 [[dependency]]
 org = "ballerinax"
-name = "activemq"
+name = "activemq.classic"
 version = "0.1.0"

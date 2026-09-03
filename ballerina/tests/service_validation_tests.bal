@@ -112,7 +112,7 @@ isolated function testSvcWithInvalidOnMessageParams() returns error? {
     Error? result = activemqListener.attach(svc);
     test:assertTrue(result is Error);
     if result is Error {
-        test:assertTrue(result.message().includes("Required parameter 'activemq:Message' cannot be found"),
+        test:assertTrue(result.message().includes("Required parameter 'classic:Message' cannot be found"),
                 "Expected error about missing Message parameter");
     }
 }
@@ -153,7 +153,7 @@ isolated function testSvcWithInvalidOnErrorParams() returns error? {
     Error? result = activemqListener.attach(svc);
     test:assertTrue(result is Error);
     if result is Error {
-        test:assertTrue(result.message().includes("onError method parameter must be of type 'activemq:Error'"),
+        test:assertTrue(result.message().includes("onError method parameter must be of type 'classic:Error'"),
                 "Expected error about invalid onError parameter");
     }
 }
@@ -173,7 +173,7 @@ isolated function testSvcWithRequiredFieldOptionalOnMessage() returns error? {
     test:assertTrue(result is Error);
     if result is Error {
         test:assertTrue(
-                result.message().includes("onMessage method parameters must be of type 'activemq:Message'"),
+                result.message().includes("onMessage method parameters must be of type 'classic:Message'"),
                 "Expected error about an incompatible onMessage parameter type");
     }
 }
@@ -193,7 +193,7 @@ isolated function testSvcWithExtraRequiredFieldOnMessage() returns error? {
     test:assertTrue(result is Error);
     if result is Error {
         test:assertTrue(
-                result.message().includes("onMessage method parameters must be of type 'activemq:Message'"),
+                result.message().includes("onMessage method parameters must be of type 'classic:Message'"),
                 "Expected error about an incompatible onMessage parameter type");
     }
 }

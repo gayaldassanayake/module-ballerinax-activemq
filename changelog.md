@@ -1,6 +1,6 @@
 # Changelog
 
-This file contains all the notable changes done to the Ballerina ActiveMQ package through the releases.
+This file contains all the notable changes done to the Ballerina ActiveMQ Classic package through the releases.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -12,13 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from a queue, and consuming via a `Listener`/`Service`.
 - Extended typed payload data binding to `Listener`/`Service`'s `onMessage`: its parameter can now
   narrow `Message`'s `payload` field to a specific type (e.g.
-  `record {|*activemq:Message; string payload;|}`), the same way `MessageConsumer.receive()`
-  already worked. A plain `activemq:Message` parameter keeps its existing behavior unchanged. A
+  `record {|*classic:Message; string payload;|}`), the same way `MessageConsumer.receive()`
+  already worked. A plain `classic:Message` parameter keeps its existing behavior unchanged. A
   payload that can't be converted to the requested type is routed to `onError` instead of being
   silently dropped.
 
 ### Changed
-- Moved the test-only `TestProducer` native helper out of the released `activemq-native` jar into a
+- Moved the test-only `TestProducer` native helper out of the released `activemq.classic-native` jar into a
   separate `testOnly`-scoped jar, so test utilities no longer ship in the production artifact.
 
 ### Removed

@@ -22,7 +22,7 @@ public isolated client class MessageProducer {
     # Initializes the ActiveMQ message producer with the specified broker URL and configurations.
     #
     # ```ballerina
-    # activemq:MessageProducer producer = check new ("tcp://localhost:61616",
+    # classic:MessageProducer producer = check new ("tcp://localhost:61616",
     #     username = "admin",
     #     password = "admin",
     #     destination = {queueName: "orders.queue"}
@@ -35,7 +35,7 @@ public isolated client class MessageProducer {
     #         - Failover: `"failover:(tcp://host1:61616,tcp://host2:61616)"`
     # + configurations - The producer configurations including authentication, SSL, policies, and
     #                    an optional default destination
-    # + return - `activemq:Error` if the initialization fails, `()` otherwise
+    # + return - `classic:Error` if the initialization fails, `()` otherwise
     public isolated function init(string url, *ProducerConfiguration configurations) returns Error? {
         check validateConnectionConfigurations(configurations);
         return self.initProducer(url, configurations);
@@ -57,7 +57,7 @@ public isolated client class MessageProducer {
     # + message - The message to send
     # + destination - The destination to send to for this call, overriding the producer's
     #                 configured default destination, if any
-    # + return - `activemq:Error` if sending fails, `()` otherwise
+    # + return - `classic:Error` if sending fails, `()` otherwise
     isolated remote function send(Message message, Destination? destination = ()) returns Error? {
         check validateMessage(message);
         return self.externSend(message, destination);
@@ -75,7 +75,7 @@ public isolated client class MessageProducer {
     # check producer->'commit();
     # ```
     #
-    # + return - `activemq:Error` if the commit fails, `()` otherwise
+    # + return - `classic:Error` if the commit fails, `()` otherwise
     isolated remote function 'commit() returns Error? = @java:Method {
         'class: "io.ballerina.lib.activemq.producer.Actions"
     } external;
@@ -87,7 +87,7 @@ public isolated client class MessageProducer {
     # check producer->'rollback();
     # ```
     #
-    # + return - `activemq:Error` if the rollback fails, `()` otherwise
+    # + return - `classic:Error` if the rollback fails, `()` otherwise
     isolated remote function 'rollback() returns Error? = @java:Method {
         'class: "io.ballerina.lib.activemq.producer.Actions"
     } external;
@@ -98,7 +98,7 @@ public isolated client class MessageProducer {
     # check producer->close();
     # ```
     #
-    # + return - `activemq:Error` if closing fails, `()` otherwise
+    # + return - `classic:Error` if closing fails, `()` otherwise
     isolated remote function close() returns Error? = @java:Method {
         'class: "io.ballerina.lib.activemq.producer.Actions"
     } external;

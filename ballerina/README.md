@@ -5,7 +5,7 @@ broker that implements the Java Message Service (JMS) API, enabling reliable, as
 communication between distributed applications through queues (point-to-point) and topics
 (publish/subscribe).
 
-The `ballerinax/activemq` package provides APIs to interact with ActiveMQ Classic brokers over the
+The `ballerinax/activemq.classic` package provides APIs to interact with ActiveMQ Classic brokers over the
 OpenWire protocol. It allows developers to programmatically produce and consume messages, subscribe
 to queues and topics both synchronously and asynchronously, and build reliable, event-driven
 integrations that leverage ActiveMQ's messaging capabilities within Ballerina applications.
@@ -21,7 +21,7 @@ integrations that leverage ActiveMQ's messaging capabilities within Ballerina ap
 
 ## Setup guide
 
-To try out the `ballerinax/activemq` connector, you need a running ActiveMQ Classic broker. The
+To try out the `ballerinax/activemq.classic` connector, you need a running ActiveMQ Classic broker. The
 quickest way to get one locally is with Docker.
 
 ### Start an ActiveMQ broker with Docker
@@ -45,25 +45,25 @@ creates queues and topics on first use, so no separate provisioning step is need
 
 ### Step 1: Import the module
 
-Import the `ballerinax/activemq` module into your Ballerina project.
+Import the `ballerinax/activemq.classic` module into your Ballerina project.
 
 ```ballerina
-import ballerinax/activemq;
+import ballerinax/activemq.classic;
 ```
 
 ### Step 2: Instantiate a new connector
 
-#### Initialize an `activemq:MessageProducer`
+#### Initialize a `classic:MessageProducer`
 
 ```ballerina
 configurable string brokerUrl = "tcp://localhost:61616";
 configurable string username = "admin";
 configurable string password = "admin";
 
-activemq:MessageProducer producer = check new (brokerUrl, username = username, password = password);
+classic:MessageProducer producer = check new (brokerUrl, username = username, password = password);
 ```
 
-#### Initialize an `activemq:MessageConsumer`
+#### Initialize a `classic:MessageConsumer`
 
 A `MessageConsumer` is bound to a single queue or topic for its whole lifetime:
 
@@ -73,14 +73,14 @@ configurable string username = "admin";
 configurable string password = "admin";
 configurable string queueName = "orders.queue";
 
-activemq:MessageConsumer consumer = check new (brokerUrl,
+classic:MessageConsumer consumer = check new (brokerUrl,
     username = username,
     password = password,
     destination = {queueName}
 );
 ```
 
-#### Initialize an `activemq:Listener`
+#### Initialize a `classic:Listener`
 
 ```ballerina
 configurable string brokerUrl = "tcp://localhost:61616";
@@ -88,13 +88,13 @@ configurable string username = "admin";
 configurable string password = "admin";
 configurable string queueName = "orders.queue";
 
-listener activemq:Listener mqListener = check new (brokerUrl, username = username, password = password);
+listener classic:Listener mqListener = check new (brokerUrl, username = username, password = password);
 
-@activemq:ServiceConfig {
+@classic:ServiceConfig {
     queueName
 }
-service activemq:Service on mqListener {
-    remote function onMessage(activemq:Message message) returns error? {
+service classic:Service on mqListener {
+    remote function onMessage(classic:Message message) returns error? {
         // Process the received message
     }
 }
@@ -115,7 +115,7 @@ check producer->send({
 #### Receive a message from a queue
 
 ```ballerina
-record {|*activemq:Message; string payload;|}? message = check consumer->receive(5000);
+record {|*classic:Message; string payload;|}? message = check consumer->receive(5000);
 ```
 
 The `payload` field's declared type in the target record determines how the message body is
@@ -131,11 +131,11 @@ bal run
 
 ## Examples
 
-The `ballerinax/activemq` connector provides practical examples illustrating usage in various
-scenarios. Explore these [examples](https://github.com/ballerina-platform/module-ballerinax-activemq/tree/main/examples):
+The `ballerinax/activemq.classic` connector provides practical examples illustrating usage in various
+scenarios. Explore these [examples](https://github.com/ballerina-platform/module-ballerinax-activemq.classic/tree/main/examples):
 
-1. [Send To Queue](https://github.com/ballerina-platform/module-ballerinax-activemq/tree/main/examples/send-to-queue) - Send a small batch of orders to a queue with `activemq:MessageProducer`. The most basic point-to-point send flow.
+1. [Send To Queue](https://github.com/ballerina-platform/module-ballerinax-activemq.classic/tree/main/examples/send-to-queue) - Send a small batch of orders to a queue with `classic:MessageProducer`. The most basic point-to-point send flow.
 
-2. [Receive From Queue](https://github.com/ballerina-platform/module-ballerinax-activemq/tree/main/examples/receive-from-queue) - Pull-receive messages from a queue with `activemq:MessageConsumer`, narrowing the payload to a `string` at the call site.
+2. [Receive From Queue](https://github.com/ballerina-platform/module-ballerinax-activemq.classic/tree/main/examples/receive-from-queue) - Pull-receive messages from a queue with `classic:MessageConsumer`, narrowing the payload to a `string` at the call site.
 
-3. [Listener Service](https://github.com/ballerina-platform/module-ballerinax-activemq/tree/main/examples/listener-service) - Subscribe to a queue declaratively with `activemq:Listener`/`activemq:Service`, processing each message as it's pushed to the service instead of pulling for it.
+3. [Listener Service](https://github.com/ballerina-platform/module-ballerinax-activemq.classic/tree/main/examples/listener-service) - Subscribe to a queue declaratively with `classic:Listener`/`classic:Service`, processing each message as it's pushed to the service instead of pulling for it.

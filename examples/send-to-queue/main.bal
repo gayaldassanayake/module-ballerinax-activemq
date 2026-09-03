@@ -1,5 +1,5 @@
 import ballerina/log;
-import ballerinax/activemq;
+import ballerinax/activemq.classic;
 
 configurable string brokerUrl = "tcp://localhost:61616";
 configurable string username = "admin";
@@ -14,7 +14,7 @@ type Order record {|
 |};
 
 public function main() returns error? {
-    activemq:MessageProducer producer = check new (brokerUrl, username = username, password = password);
+    classic:MessageProducer producer = check new (brokerUrl, username = username, password = password);
 
     Order[] orders = [
         {orderId: "ORD-1001", item: "Wireless Mouse", quantity: 2},

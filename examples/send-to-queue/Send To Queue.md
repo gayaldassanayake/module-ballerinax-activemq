@@ -1,6 +1,6 @@
 # Send To Queue
 
-Sends a small batch of orders to an ActiveMQ queue using `activemq:MessageProducer`. Shows the
+Sends a small batch of orders to an ActiveMQ queue using `classic:MessageProducer`. Shows the
 most basic point-to-point send flow: connect, send a few messages, close.
 
 ## Prerequisites
