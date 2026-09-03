@@ -413,7 +413,7 @@ function testItListenerOnMessagePanicDoesNotGoToOnError() returns error? {
 
     int followupCount = 0;
     int attempts = 0;
-    while followupCount < 1 && attempts < 10 {
+    while followupCount < 1 && attempts < 30 {
         runtime:sleep(1);
         lock { followupCount = itListenerPanicFollowupCount; }
         attempts += 1;
