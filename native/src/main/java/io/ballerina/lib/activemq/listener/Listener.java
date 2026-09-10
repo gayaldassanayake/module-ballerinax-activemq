@@ -96,30 +96,60 @@ public final class Listener {
     public static Object attach(Environment env, BObject bListener, BObject bService, Object name) {
         Connection connection = (Connection) bListener.getNativeData(NATIVE_CONNECTION);
         Object started = bListener.getNativeData(LISTENER_STARTED);
+        Session session = null;
+        MessageConsumer consumer = null;
         try {
             Service.validateService(bService);
             Service nativeService = new Service(bService);
             ServiceConfig svcConfig = nativeService.getServiceConfig();
 
             int sessionAckMode = getAcknowledgementMode(svcConfig.ackMode());
-            Session session = connection.createSession(sessionAckMode);
-            MessageConsumer consumer = getConsumer(session, svcConfig);
+            session = connection.createSession(sessionAckMode);
+            consumer = getConsumer(session, svcConfig);
 
             MessageDispatcher messageDispatcher = new MessageDispatcher(env.getRuntime(), nativeService, session);
             MessageReceiver receiver = new MessageReceiver(session, consumer, messageDispatcher);
             messageDispatcher.setReceiver(receiver);
-            bService.addNativeData(NATIVE_SERVICE, nativeService);
-            bService.addNativeData(NATIVE_RECEIVER, receiver);
-            List<BObject> serviceList = getBServices(bListener);
-            serviceList.add(bService);
-            if (Objects.nonNull(started) && ((Boolean) started)) {
-                receiver.consume();
-            }
+            completeAttachment(Boolean.TRUE.equals(started), receiver, consumer, session, () -> {
+                bService.addNativeData(NATIVE_SERVICE, nativeService);
+                bService.addNativeData(NATIVE_RECEIVER, receiver);
+                getBServices(bListener).add(bService);
+            });
         } catch (BError | JMSException e) {
             String errorMsg = Objects.isNull(e.getMessage()) ? "Unknown error" : e.getMessage();
             return createError(ACTIVEMQ_ERROR, String.format("Failed to attach service to listener: %s", errorMsg), e);
         }
         return null;
+    }
+
+    static void completeAttachment(boolean started, MessageReceiver receiver, MessageConsumer consumer, Session session,
+                                   Runnable publish) throws JMSException {
+        try {
+            if (started) {
+                receiver.consume();
+            }
+            publish.run();
+        } catch (JMSException | RuntimeException e) {
+            closeAttachResources(consumer, session, e);
+            throw e;
+        }
+    }
+
+    private static void closeAttachResources(MessageConsumer consumer, Session session, Throwable cause) {
+        if (consumer != null) {
+            try {
+                consumer.close();
+            } catch (JMSException e) {
+                cause.addSuppressed(e);
+            }
+        }
+        if (session != null) {
+            try {
+                session.close();
+            } catch (JMSException e) {
+                cause.addSuppressed(e);
+            }
+        }
     }
 
     /**
